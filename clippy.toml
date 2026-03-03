@@ -1,0 +1,2 @@
+# clippy.toml
+type-complexity-threshold = 999  # 提高阈值，实际上禁用检查

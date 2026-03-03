@@ -1,0 +1,15 @@
+[package]
+name = "bevy_http"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bevy_app.workspace = true
+bevy_ecs.workspace = true
+bevy_tasks.workspace = true
+
+ehttp.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+crossbeam-channel.workspace = true
+urlencoding.workspace = true

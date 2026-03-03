@@ -1,0 +1,16 @@
+[package]
+name = "bevy_clipboard"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+bevy_app.workspace = true
+bevy_ecs.workspace = true
+thiserror.workspace = true
+
+[target.'cfg(not(target_os = "android"))'.dependencies]
+arboard.workspace = true
+
+[target.'cfg(target_os = "android")'.dependencies]
+jni = "0.21"
+ndk-context = "0.1"

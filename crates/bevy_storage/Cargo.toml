@@ -1,0 +1,14 @@
+[package]
+name = "bevy_storage"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+bevy_app.workspace = true
+bevy_ecs.workspace = true
+bevy_log.workspace = true
+
+serde.workspace = true
+serde_json.workspace = true
+sysdirs = "0.9.4"
+thiserror.workspace = true
