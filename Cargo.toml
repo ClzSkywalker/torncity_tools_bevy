@@ -55,6 +55,9 @@ edition = "2024"
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+[build-dependencies]
+winresource = "0.1"
+
 [target.'cfg(not(target_os = "android"))'.dependencies]
 bevy = { version = "0.18", features = ["bevy_window", "bevy_asset"] }
 bevy_asset_loader.workspace = true

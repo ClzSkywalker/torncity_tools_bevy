@@ -1,3 +1,6 @@
+// 处理windows弹出控制台的问题
+#![cfg_attr(target_os = "windows", windows_subsystem = "windows")]
+
 use bevy::prelude::*;
 
 use crate::game::GamePlugin;
