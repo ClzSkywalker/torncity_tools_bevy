@@ -69,6 +69,7 @@ impl ViewTabConfig {
 #[derive(Clone)]
 pub struct TabStyleConfig {
     pub root_background: Color,
+    pub root_padding: UiRect,
     pub content_padding: UiRect,
     pub tab_bar_background: Color,
     pub tab_bar_height: Val,
@@ -87,7 +88,8 @@ impl Default for TabStyleConfig {
     fn default() -> Self {
         Self {
             root_background: Color::srgb(0.1, 0.1, 0.12),
-            content_padding: UiRect::all(px(5.0)),
+            root_padding: UiRect::all(px(5.0)),
+            content_padding: UiRect::all(px(0.0)),
             tab_bar_background: Color::srgb(0.08, 0.08, 0.1),
             tab_bar_height: px(70.0),
             tab_bar_padding: UiRect::axes(px(8.0), px(5.0)),
@@ -133,6 +135,7 @@ pub fn build_tab_view(mut commands: Commands, config: Res<ViewTabConfig>) {
                 width: percent(100.0),
                 height: percent(100.0),
                 flex_direction: FlexDirection::Column,
+                padding: config.style.root_padding,
                 ..Default::default()
             },
             BackgroundColor(config.style.root_background),

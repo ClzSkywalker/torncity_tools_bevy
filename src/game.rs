@@ -6,9 +6,9 @@ use crate::{resource::LoadingPlugin, view::ViewPlugin};
 pub enum GameState {
     // During the loading State the LoadingPlugin will load our assets
     #[default]
-    Loading,
+    Asset,
     // During this State the actual game logic is executed
-    Playing,
+    InitConfig,
     // Here the menu is drawn and waiting for player interaction
     Menu,
 }
@@ -20,14 +20,14 @@ impl Plugin for GamePlugin {
         app.init_state::<GameState>()
             .add_plugins((LoadingPlugin, ViewPlugin));
 
-        #[cfg(debug_assertions)]
-        {
-            use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
+        // #[cfg(debug_assertions)]
+        // {
+        //     use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 
-            app.add_plugins((
-                FrameTimeDiagnosticsPlugin::default(),
-                LogDiagnosticsPlugin::default(),
-            ));
-        }
+        //     app.add_plugins((
+        //         FrameTimeDiagnosticsPlugin::default(),
+        //         LogDiagnosticsPlugin::default(),
+        //     ));
+        // }
     }
 }

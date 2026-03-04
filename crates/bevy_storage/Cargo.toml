@@ -10,5 +10,7 @@ bevy_log.workspace = true
 
 serde.workspace = true
 serde_json.workspace = true
-sysdirs = "0.9.4"
+base64.workspace = true
+sha2.workspace = true
+sysdirs = { version = "0.9", features = ["android-auto"] }
 thiserror.workspace = true

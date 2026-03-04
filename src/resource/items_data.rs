@@ -1,14 +1,14 @@
-use bevy::prelude::*;
 use crate::game::GameState;
 use crate::model::items::ItemInfo;
 use crate::resource::{DataAssets, ItemsCsvAsset};
+use bevy::prelude::*;
 
 /// ItemsData 插件
 pub struct ItemsDataPlugin;
 
 impl Plugin for ItemsDataPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnEnter(GameState::Menu), office_item_startup);
+        app.add_systems(OnEnter(GameState::InitConfig), office_item_startup);
     }
 }
 
@@ -46,6 +46,9 @@ pub fn office_item_startup(
     let database = ItemsDatabase {
         items: csv_asset.items.clone(),
     };
-    println!("✓ Loaded {} items from DataAssets", database.items.len());
+    bevy::log::info!(
+        "office_item_startup: Loaded {} items from DataAssets",
+        database.items.len()
+    );
     commands.insert_resource(database);
 }

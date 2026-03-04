@@ -5,14 +5,14 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Debug torncity_tools_bevy",
+      "name": "Debug torn_trade",
       "type": "lldb",
       "request": "launch",
       "cargo": {
         "args": [
           "build",
-          "--bin=torncity_tools_bevy",
-          "--package=torncity_tools_bevy"
+          "--bin=torn_trade",
+          "--package=torn_trade"
         ]
       },
       "cwd": "${workspaceFolder}",

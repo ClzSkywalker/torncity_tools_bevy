@@ -19,8 +19,8 @@ impl Plugin for LoadingPlugin {
         app.init_asset::<ItemsCsvAsset>()
             .register_asset_loader(ItemsCsvAssetLoader)
             .add_loading_state(
-                LoadingState::new(GameState::Loading)
-                    .continue_to_state(GameState::Menu)
+                LoadingState::new(GameState::Asset)
+                    .continue_to_state(GameState::InitConfig)
                     .load_collection::<DataAssets>()
                     .load_collection::<TextureAssets>()
                     .load_collection::<FontAssets>(),

@@ -1,15 +1,11 @@
 use std::{
     collections::{HashMap, HashSet},
+    path::Path,
     time::Duration,
 };
 
 #[cfg(all(feature = "disk-cache", not(target_arch = "wasm32")))]
-use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
-#[cfg(all(feature = "disk-cache", not(target_arch = "wasm32")))]
-use std::{
-    fs,
-    path::{Path, PathBuf},
-};
+use bevy_storage::StorageManager;
 
 use bevy_app::prelude::*;
 use bevy_asset::{RenderAssetUsages, prelude::*};
@@ -18,11 +14,8 @@ use bevy_image::{CompressedImageFormats, ImageSampler, ImageType, prelude::*};
 use bevy_log::prelude::*;
 use bevy_tasks::{IoTaskPool, Task, futures_lite::future};
 use bevy_ui::prelude::*;
-#[cfg(all(feature = "disk-cache", target_os = "android"))]
-use jni::objects::{JObject, JString};
 
-#[cfg(all(feature = "disk-cache", not(target_arch = "wasm32")))]
-use sha2::{Digest, Sha256};
+const REMOTE_IMAGE_CACHE_NAMESPACE: &str = "image";
 
 pub struct RemoteImagePlugin;
 
@@ -42,70 +35,17 @@ pub struct RemoteImageTarget {
 #[derive(Component)]
 struct ImageDownloadTask(Task<ImageDownloadResult>);
 
-#[derive(Resource, Debug)]
+#[derive(Resource, Debug, Default)]
 struct RemoteImageCache {
     in_flight: HashSet<String>,
     url_to_handle: HashMap<String, Handle<Image>>,
-    #[cfg(all(feature = "disk-cache", not(target_arch = "wasm32")))]
-    cache_absolute_dir: PathBuf,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 struct ImageDownloadResult {
     url: String,
     bytes: Option<Vec<u8>>,
     content_type: Option<String>,
-}
-
-impl Default for RemoteImageCache {
-    fn default() -> Self {
-        #[cfg(all(feature = "disk-cache", not(target_arch = "wasm32")))]
-        let cache_absolute_dir = {
-            let absolute = resolve_cache_dir();
-            let _ = fs::create_dir_all(&absolute);
-            absolute
-        };
-
-        Self {
-            in_flight: HashSet::new(),
-            url_to_handle: HashMap::new(),
-            #[cfg(all(feature = "disk-cache", not(target_arch = "wasm32")))]
-            cache_absolute_dir,
-        }
-    }
-}
-
-#[cfg(all(feature = "disk-cache", not(target_arch = "wasm32"), not(target_os = "android")))]
-fn resolve_cache_dir() -> PathBuf {
-    PathBuf::from("assets").join(".http_cache")
-}
-
-#[cfg(all(feature = "disk-cache", target_os = "android"))]
-fn resolve_cache_dir() -> PathBuf {
-    // Android APK assets are read-only. Use app cache dir instead.
-    android_cache_dir().unwrap_or_else(|| std::env::temp_dir().join("bevy_remote_image_cache"))
-}
-
-#[cfg(all(feature = "disk-cache", target_os = "android"))]
-fn android_cache_dir() -> Option<PathBuf> {
-    let ctx = ndk_context::android_context();
-    let vm = unsafe { jni::JavaVM::from_raw(ctx.vm().cast()) }.ok()?;
-    let mut env = vm.attach_current_thread().ok()?;
-
-    let activity = unsafe { JObject::from_raw(ctx.context().cast()) };
-    let cache_dir = env
-        .call_method(activity, "getCacheDir", "()Ljava/io/File;", &[])
-        .ok()?
-        .l()
-        .ok()?;
-    let path = env
-        .call_method(cache_dir, "getAbsolutePath", "()Ljava/lang/String;", &[])
-        .ok()?
-        .l()
-        .ok()?;
-    let path: JString = path.into();
-    let path: String = env.get_string(&path).ok()?.into();
-    Some(PathBuf::from(path))
 }
 
 fn queue_remote_images(
@@ -113,6 +53,7 @@ fn queue_remote_images(
     #[cfg(all(feature = "disk-cache", not(target_arch = "wasm32")))] mut images: ResMut<
         Assets<Image>,
     >,
+    #[cfg(all(feature = "disk-cache", not(target_arch = "wasm32")))] storage: Res<StorageManager>,
     mut cache: ResMut<RemoteImageCache>,
     query: Query<(Entity, &RemoteImageTarget), Added<RemoteImageTarget>>,
 ) {
@@ -125,7 +66,7 @@ fn queue_remote_images(
         }
 
         #[cfg(all(feature = "disk-cache", not(target_arch = "wasm32")))]
-        if let Some(image) = load_cached_image(&target.url, &cache) {
+        if let Some(image) = load_cached_image(&target.url, &storage) {
             let handle = images.add(image);
             cache
                 .url_to_handle
@@ -153,6 +94,7 @@ fn apply_downloaded_images(
     mut cache: ResMut<RemoteImageCache>,
     mut task_query: Query<(Entity, &mut ImageDownloadTask)>,
     target_query: Query<(Entity, &RemoteImageTarget)>,
+    #[cfg(all(feature = "disk-cache", not(target_arch = "wasm32")))] storage: Res<StorageManager>,
 ) {
     for (task_entity, mut task) in &mut task_query {
         let Some(result) = future::block_on(future::poll_once(&mut task.0)) else {
@@ -166,11 +108,11 @@ fn apply_downloaded_images(
                 decode_image_from_response(&result.url, &bytes, result.content_type.as_deref())
             {
                 #[cfg(all(feature = "disk-cache", not(target_arch = "wasm32")))]
-                persist_downloaded_image(
+                let _ = storage.save_cache_bytes(
+                    REMOTE_IMAGE_CACHE_NAMESPACE,
                     &result.url,
                     &bytes,
-                    result.content_type.as_deref(),
-                    &cache.cache_absolute_dir,
+                    extension_from_url(&result.url),
                 );
 
                 let handle = images.add(image);
@@ -198,7 +140,7 @@ fn apply_downloaded_images(
 
 async fn download_image(url: &str) -> ImageDownloadResult {
     let mut request = ehttp::Request::get(url);
-    request.timeout = Some(Duration::from_secs(15));
+    request.timeout = Some(Duration::from_secs(5));
 
     let response = match ehttp::fetch_async(request).await {
         Ok(resp) => resp,
@@ -264,108 +206,26 @@ fn decode_image_from_response(
 
 fn extension_from_url(url: &str) -> Option<&str> {
     let url_no_query = url.split('?').next().unwrap_or(url);
-    std::path::Path::new(url_no_query)
+    Path::new(url_no_query)
         .extension()
         .and_then(|value| value.to_str())
 }
 
 #[cfg(all(feature = "disk-cache", not(target_arch = "wasm32")))]
-fn load_cached_image(url: &str, cache: &RemoteImageCache) -> Option<Image> {
-    let path = resolve_cached_file_path(url, &cache.cache_absolute_dir)?;
-    let bytes = fs::read(&path).ok()?;
-
-    let ext = path
-        .extension()
-        .and_then(|value| value.to_str())
-        .unwrap_or("png");
-    let image_type = ImageType::Extension(ext);
-
-    Image::from_buffer(
-        &bytes,
-        image_type,
-        CompressedImageFormats::all(),
-        true,
-        ImageSampler::default(),
-        RenderAssetUsages::default(),
-    )
-    .ok()
-}
-
-#[cfg(all(feature = "disk-cache", not(target_arch = "wasm32")))]
-fn persist_downloaded_image(
-    url: &str,
-    bytes: &[u8],
-    content_type: Option<&str>,
-    cache_absolute_dir: &Path,
-) {
-    let hash = sha256_base64url(url);
-    let ext = infer_extension(url, content_type);
-    let file_name = format!("{hash}.{ext}");
-    let absolute_path = cache_absolute_dir.join(file_name);
-
-    if let Err(err) = fs::create_dir_all(cache_absolute_dir) {
-        warn!("create cache dir failed for {url}: {err}");
-        return;
-    }
-
-    if let Err(err) = fs::write(absolute_path, bytes) {
-        warn!("write cache file failed for {url}: {err}");
-    }
-}
-
-#[cfg(all(feature = "disk-cache", not(target_arch = "wasm32")))]
-fn resolve_cached_file_path(url: &str, cache_absolute_dir: &Path) -> Option<PathBuf> {
-    let hash = sha256_base64url(url);
-    let entries = fs::read_dir(cache_absolute_dir).ok()?;
-
-    for entry in entries.flatten() {
-        let file_name = entry.file_name().to_string_lossy().to_string();
-        if file_name.starts_with(&hash) {
-            return Some(entry.path());
-        }
-    }
-
-    None
-}
-
-#[cfg(all(feature = "disk-cache", not(target_arch = "wasm32")))]
-fn sha256_base64url(value: &str) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(value.as_bytes());
-    let bytes = hasher.finalize();
-    URL_SAFE_NO_PAD.encode(bytes)
-}
-
-#[cfg(all(feature = "disk-cache", not(target_arch = "wasm32")))]
-fn infer_extension(url: &str, content_type: Option<&str>) -> String {
-    let url_no_query = url.split('?').next().unwrap_or(url);
-    if let Some(ext) = Path::new(url_no_query).extension().and_then(|s| s.to_str()) {
-        let lower = ext.to_ascii_lowercase();
-        if matches!(
-            lower.as_str(),
-            "png" | "jpg" | "jpeg" | "webp" | "gif" | "bmp"
-        ) {
-            return if lower == "jpg" {
-                "jpeg".to_string()
-            } else {
-                lower
-            };
-        }
-    }
-
-    let Some(content_type) = content_type else {
-        return "png".to_string();
-    };
-
-    if content_type.contains("jpeg") || content_type.contains("jpg") {
-        "jpeg".to_string()
-    } else if content_type.contains("webp") {
-        "webp".to_string()
-    } else if content_type.contains("gif") {
-        "gif".to_string()
-    } else if content_type.contains("bmp") {
-        "bmp".to_string()
-    } else {
-        "png".to_string()
-    }
+fn load_cached_image(url: &str, storage: &StorageManager) -> Option<Image> {
+    let cached = storage
+        .load_cache_bytes(REMOTE_IMAGE_CACHE_NAMESPACE, url)
+        .ok()??;
+    decode_image_from_response(url, &cached.bytes, cached.content_type.as_deref()).or_else(|| {
+        let ext = cached.ext.as_deref()?;
+        Image::from_buffer(
+            &cached.bytes,
+            ImageType::Extension(ext),
+            CompressedImageFormats::all(),
+            true,
+            ImageSampler::default(),
+            RenderAssetUsages::default(),
+        )
+        .ok()
+    })
 }

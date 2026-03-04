@@ -1,65 +1,59 @@
 use bevy_app::prelude::*;
-use bevy_asset::prelude::*;
+use bevy_asset::{io::embedded::GetAssetServer, prelude::*};
 use bevy_ecs::prelude::*;
 use bevy_text::prelude::*;
 use bevy_ui::prelude::*;
 
-pub const DEFAULT_TEXT_FONT_PATH: &str = "fonts/NotoSansSC-Medium.ttf";
-
 #[derive(Resource, Clone)]
-pub struct UiFonts {
-    pub main: Handle<Font>,
-}
+pub struct UiFonts(pub Option<Handle<Font>>);
 
-#[derive(Resource, Debug, Clone, Default)]
-pub struct GlobalUiFontPath(pub Option<String>);
-
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct GlobalUiFontPlugin {
-    pub main_font_path: Option<String>,
+    pub path: Option<String>,
 }
 
-impl Default for GlobalUiFontPlugin {
-    fn default() -> Self {
-        Self {
-            // Use Bevy built-in fallback font by default.
-            // This avoids startup errors when external font assets are absent.
-            main_font_path: None,
-        }
+impl GlobalUiFontPlugin {
+    pub fn new(path: Option<String>) -> Self {
+        Self { path }
     }
 }
 
 impl Plugin for GlobalUiFontPlugin {
     fn build(&self, app: &mut App) {
-        if self.main_font_path.is_some() {
-            app.insert_resource(GlobalUiFontPath(self.main_font_path.clone()))
-                .add_systems(Startup, init_ui_fonts)
-                .add_systems(Update, apply_global_font_to_new_text);
-        }
+        let font_handle = if self.path.is_some() {
+            Some(app.get_asset_server().load(self.path.as_ref().unwrap()))
+        } else {
+            None
+        };
+        app.insert_resource(UiFonts(font_handle))
+            .add_systems(Update, text_change_add)
+            .add_systems(Update, font_change_ob.run_if(resource_changed::<UiFonts>));
     }
 }
 
-fn init_ui_fonts(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    font_path: Res<GlobalUiFontPath>,
-) {
-    let Some(path) = font_path.0.clone() else {
-        return;
-    };
-    commands.insert_resource(UiFonts {
-        main: asset_server.load(path),
-    });
-}
-
-fn apply_global_font_to_new_text(
+fn text_change_add(
     mut commands: Commands,
     fonts: Res<UiFonts>,
-    query: Query<(Entity, Option<&TextFont>), Added<Text>>,
+    query: Query<(Entity, Option<&TextFont>), Or<(Added<Text>, Changed<Text>)>>,
 ) {
+    let Some(font_handle) = fonts.0.clone() else {
+        return;
+    };
     for (entity, existing_text_font) in &query {
         let mut text_font = existing_text_font.cloned().unwrap_or_default();
-        text_font.font = fonts.main.clone();
+        text_font.font = font_handle.clone();
         commands.entity(entity).insert(text_font);
+    }
+}
+
+fn font_change_ob(
+    fonts: Res<UiFonts>,
+    mut query: Query<&mut TextFont, Or<(Added<Text>, Changed<Text>)>>,
+) {
+    let Some(font_handle) = fonts.0.clone() else {
+        return;
+    };
+    for mut text_font in &mut query {
+        text_font.font = font_handle.clone();
     }
 }

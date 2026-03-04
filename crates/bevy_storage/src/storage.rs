@@ -1,109 +1,93 @@
-use crate::error::{Result, StorageError};
-use bevy_ecs::prelude::*;
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
 
-/// 配置存储管理器 (Bevy Resource)
-#[derive(Resource)]
+use bevy_ecs::prelude::*;
+use serde::{Serialize, de::DeserializeOwned};
+
+use crate::app_config::AppConfigStore;
+use crate::app_paths::AppPaths;
+use crate::cache_store::{CacheStore, CachedBinary};
+use crate::error::Result;
+use crate::file_store::FileStore;
+
+/// 存储管理器：统一提供应用配置、目录路径、通用文件读写、缓存文件读写能力
+#[derive(Resource, Debug, Clone)]
 pub struct StorageManager {
-    file_path: PathBuf,
-    cache: Mutex<HashMap<String, serde_json::Value>>,
+    paths: AppPaths,
+    app_config: AppConfigStore,
+    cache_store: CacheStore,
 }
 
 impl StorageManager {
-    /// 创建新的存储管理器
-    pub fn new(organization: &str, application: &str) -> Self {
-        let file_path = Self::resolve_storage_file_path(organization, application);
-        let cache = match Self::read_store_map(&file_path) {
-            Ok(cache) => cache,
-            Err(err) => {
-                bevy_log::warn!("Failed to load storage file `{}`: {err}", file_path.display());
-                HashMap::new()
-            }
-        };
-
+    pub fn new() -> Self {
+        let paths = AppPaths::detect();
+        let _ = paths.ensure_all();
+        let app_config = AppConfigStore::new(&paths);
+        let cache_store = CacheStore::new(paths.cache_dir.clone());
         Self {
-            file_path,
-            cache: Mutex::new(cache),
+            paths,
+            app_config,
+            cache_store,
         }
     }
 
-    /// 保存配置
-    pub fn save<T: Serialize>(&mut self, key: &str, value: &T) -> Result<()> {
-        let value =
-            serde_json::to_value(value).map_err(|e| StorageError::SerializationError(e.to_string()))?;
-        let mut cache = self
-            .cache
-            .lock()
-            .map_err(|e| StorageError::BackendError(e.to_string()))?;
-        cache.insert(key.to_string(), value);
-        self.persist_store_map(&cache)
+    pub fn app_paths(&self) -> &AppPaths {
+        &self.paths
     }
 
-    /// 加载配置
-    pub fn load<T: for<'de> Deserialize<'de>>(&self, key: &str) -> Result<T> {
-        let cache = self
-            .cache
-            .lock()
-            .map_err(|e| StorageError::BackendError(e.to_string()))?;
-        let value = cache
-            .get(key)
-            .cloned()
-            .ok_or_else(|| StorageError::KeyNotFound(key.to_string()))?;
-        serde_json::from_value(value).map_err(|e| StorageError::DeserializationError(e.to_string()))
+    pub fn app_config_path(&self) -> &PathBuf {
+        self.app_config.path()
     }
 
-    /// 检查键是否存在
-    pub fn exists(&self, key: &str) -> bool {
-        self.cache
-            .lock()
-            .map(|cache| cache.contains_key(key))
-            .unwrap_or(false)
+    pub fn save_app_config<T: Serialize>(&self, value: &T) -> Result<()> {
+        self.app_config.save(value)
     }
 
-    fn resolve_storage_file_path(organization: &str, application: &str) -> PathBuf {
-        let base_dir = sysdirs::config_dir()
-            .or_else(sysdirs::data_local_dir)
-            .or_else(sysdirs::data_dir)
-            .or_else(|| std::env::current_dir().ok())
-            .unwrap_or_else(|| PathBuf::from("."));
-
-        base_dir
-            .join(organization)
-            .join(application)
-            .join("storage.json")
+    pub fn load_app_config<T: DeserializeOwned>(&self) -> Result<T> {
+        self.app_config.load()
     }
 
-    fn read_store_map(path: &Path) -> Result<HashMap<String, serde_json::Value>> {
-        if !path.exists() {
-            return Ok(HashMap::new());
-        }
-
-        let content =
-            fs::read_to_string(path).map_err(|e| StorageError::BackendError(e.to_string()))?;
-        if content.trim().is_empty() {
-            return Ok(HashMap::new());
-        }
-
-        serde_json::from_str(&content).map_err(|e| StorageError::DeserializationError(e.to_string()))
+    pub fn load_app_config_or_default<T: DeserializeOwned + Default>(&self) -> Result<T> {
+        self.app_config.load_or_default()
     }
 
-    fn persist_store_map(&self, cache: &HashMap<String, serde_json::Value>) -> Result<()> {
-        if let Some(parent_dir) = self.file_path.parent() {
-            fs::create_dir_all(parent_dir).map_err(|e| StorageError::BackendError(e.to_string()))?;
-        }
+    pub fn read_file_bytes(&self, path: &Path) -> Result<Vec<u8>> {
+        FileStore::read_bytes(path)
+    }
 
-        let content =
-            serde_json::to_string_pretty(cache).map_err(|e| StorageError::SerializationError(e.to_string()))?;
-        fs::write(&self.file_path, content).map_err(|e| StorageError::BackendError(e.to_string()))
+    pub fn write_file_bytes(&self, path: &Path, bytes: &[u8]) -> Result<()> {
+        FileStore::write_bytes(path, bytes)
+    }
+
+    pub fn read_file_text(&self, path: &Path) -> Result<String> {
+        FileStore::read_text(path)
+    }
+
+    pub fn write_file_text(&self, path: &Path, text: &str) -> Result<()> {
+        FileStore::write_text(path, text)
+    }
+
+    pub fn ensure_cache_dir(&self, namespace: &str) -> Result<PathBuf> {
+        self.cache_store.ensure_cache_dir(namespace)
+    }
+
+    pub fn load_cache_bytes(&self, namespace: &str, key: &str) -> Result<Option<CachedBinary>> {
+        self.cache_store.load_cache_bytes(namespace, key)
+    }
+
+    pub fn save_cache_bytes(
+        &self,
+        namespace: &str,
+        key: &str,
+        bytes: &[u8],
+        hint_ext: Option<&str>,
+    ) -> Result<()> {
+        self.cache_store
+            .save_cache_bytes(namespace, key, bytes, hint_ext)
     }
 }
 
 impl Default for StorageManager {
     fn default() -> Self {
-        Self::new("bevy_storage", "dev")
+        Self::new()
     }
 }

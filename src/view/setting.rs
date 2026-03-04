@@ -2,7 +2,7 @@ use bevy::ecs::relationship::RelatedSpawner;
 use bevy::prelude::*;
 use bevy_clipboard::{ClipboardReadResult, ReadClipboardEvent};
 use bevy_http::tools::HttpTool;
-use bevy_storage::{StorageError, StorageManager};
+use bevy_storage::StorageManager;
 use bevy_tab::tab::{TabContentRoot, build_tab_view};
 
 use crate::{
@@ -11,6 +11,7 @@ use crate::{
         number_stepper::{NumberStepperConfig, NumberStepperSpawner, StepperValueChanged},
         scroll::ScrollSpawn,
     },
+    game::GameState,
     view::{TabId, res::SettingConfigRes},
 };
 
@@ -31,10 +32,12 @@ impl Plugin for SettingPlugin {
             .add_observer(parse_curl_result_ob)
             .add_observer(save_config_observer)
             .add_systems(Startup, load_config_system.before(view))
-            .add_systems(Startup, view.after(build_tab_view))
+            .add_systems(OnEnter(GameState::Menu), view.after(build_tab_view))
             .add_systems(
                 Update,
-                update_curl_config_system.run_if(resource_changed::<SettingConfigRes>),
+                update_curl_config_system
+                    .run_if(resource_changed::<SettingConfigRes>)
+                    .run_if(in_state(GameState::Menu)),
             )
             .add_systems(Update, read_clipboard_sys)
             .add_systems(Update, save_config_button_system);
@@ -372,10 +375,10 @@ fn save_config_button_system(
 /// 处理保存配置事件
 fn save_config_observer(
     _trigger: On<SaveConfigEvent>,
-    mut storage: ResMut<StorageManager>,
+    storage: Res<StorageManager>,
     config: Res<SettingConfigRes>,
 ) {
-    match storage.save("settings", config.as_ref()) {
+    match storage.save_app_config(config.as_ref()) {
         Ok(_) => {
             bevy::log::info!("✅ Configuration saved successfully");
         }
@@ -387,15 +390,9 @@ fn save_config_observer(
 
 /// 启动时加载配置
 fn load_config_system(storage: Res<StorageManager>, mut config: ResMut<SettingConfigRes>) {
-    match storage.load::<SettingConfigRes>("settings") {
+    match storage.load_app_config_or_default::<SettingConfigRes>() {
         Ok(loaded_config) => {
             *config = loaded_config;
-        }
-        Err(StorageError::KeyNotFound(_)) => {
-            bevy::log::info!("⚠️  No saved configuration found, using defaults");
-        }
-        Err(StorageError::DeserializationError(_)) => {
-            bevy::log::info!("⚠️  No saved configuration found, using defaults");
         }
         Err(e) => {
             bevy::log::error!("❌ Failed to load configuration: {}, using defaults", e);

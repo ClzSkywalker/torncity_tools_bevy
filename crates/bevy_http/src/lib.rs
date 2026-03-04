@@ -62,15 +62,11 @@ fn create_request_task<T: HttpRequest>(
         IoTaskPool::get()
             .spawn(async move {
                 let req: Request = request.build_request().into();
-                println!("start request");
                 let result = ehttp::fetch_async(req).await;
-                println!("request result");
                 sender.send(result).unwrap();
-                println!("request done");
             })
             .detach();
 
-        println!("create request task");
         commands.entity(entity).insert(RequestTask::new(receiver));
     }
 }

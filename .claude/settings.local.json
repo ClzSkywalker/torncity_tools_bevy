@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 scripts/generate_icons.py build/app_trimmed.png)",
+      "Bash(chmod +x /Users/sky/Documents/project/rust/torncity_tools_bevy/scripts/setup_android_signing.sh)",
+      "Bash(chmod +x /Users/sky/Documents/project/rust/torncity_tools_bevy/scripts/android_help.sh)"
+    ],
+    "additionalDirectories": [
+      "/Users/sky/Documents/project/rust/torncity_tools_bevy/scripts"
+    ]
+  }
+}

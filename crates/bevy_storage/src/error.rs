@@ -8,8 +8,8 @@ pub enum StorageError {
     #[error("Failed to deserialize data: {0}")]
     DeserializationError(String),
 
-    #[error("Key not found: {0}")]
-    KeyNotFound(String),
+    #[error("Not found: {0}")]
+    NotFound(String),
 
     #[error("Storage backend error: {0}")]
     BackendError(String),
