@@ -23,7 +23,8 @@ impl Plugin for LoadingPlugin {
                     .continue_to_state(GameState::InitConfig)
                     .load_collection::<DataAssets>()
                     .load_collection::<TextureAssets>()
-                    .load_collection::<FontAssets>(),
+                    .load_collection::<FontAssets>()
+                    .load_collection::<AudioAssets>(),
             );
     }
 }
@@ -38,8 +39,14 @@ pub struct DataAssets {
 
 #[derive(AssetCollection, Resource)]
 pub struct TextureAssets {
-    #[asset(path = "icons/loading.png")]
-    pub loading: Handle<Image>,
+    // #[asset(path = "icons/loading.png")]
+    // pub loading: Handle<Image>,
+}
+
+#[derive(AssetCollection, Resource)]
+pub struct AudioAssets {
+    #[asset(path = "audio/notification.mp3")]
+    pub notification: Handle<AudioSource>,
 }
 
 #[derive(Asset, TypePath, Debug, Clone)]

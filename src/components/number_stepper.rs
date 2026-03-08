@@ -1,9 +1,9 @@
 use bevy::{ecs::relationship::RelatedSpawner, prelude::*};
+use bevy_theme::prelude::*;
 
-/// 数值调节器配置
 #[derive(Debug, Clone)]
 pub struct NumberStepperConfig {
-    pub id: Option<String>,  // 可选的唯一标识符
+    pub id: Option<String>,
     pub value: f32,
     pub min: f32,
     pub max: f32,
@@ -26,7 +26,6 @@ impl Default for NumberStepperConfig {
     }
 }
 
-/// 数值调节器的运行时状态（每个 stepper 独立维护）
 #[derive(Component, Debug, Clone)]
 pub struct StepperState {
     pub id: Option<String>,
@@ -50,7 +49,6 @@ impl From<NumberStepperConfig> for StepperState {
     }
 }
 
-/// 数值变化事件（外部系统可监听此事件）
 #[derive(Event, Debug, Clone)]
 pub struct StepperValueChanged {
     pub id: Option<String>,
@@ -59,14 +57,12 @@ pub struct StepperValueChanged {
     pub new_value: f32,
 }
 
-/// 按钮方向枚举
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ButtonDirection {
     Decrement,
     Increment,
 }
 
-/// 按钮标记（通过 stepper_entity 关联到父 stepper）
 #[derive(Component, Debug, Clone)]
 #[require(Button)]
 pub struct StepperButton {
@@ -74,13 +70,11 @@ pub struct StepperButton {
     pub direction: ButtonDirection,
 }
 
-/// 数值文本标记（通过 stepper_entity 关联到父 stepper）
 #[derive(Component, Debug, Clone)]
 pub struct StepperValueText {
     pub stepper_entity: Entity,
 }
 
-/// 数值调节器 Spawner
 pub struct NumberStepperSpawner {
     pub config: NumberStepperConfig,
 }
@@ -108,7 +102,6 @@ impl NumberStepperSpawner {
             Children::spawn(SpawnWith(move |spawner: &mut RelatedSpawner<ChildOf>| {
                 let stepper_entity = spawner.target_entity();
 
-                // 减按钮
                 spawner.spawn((
                     Node {
                         width: Val::Px(40.0),
@@ -118,24 +111,25 @@ impl NumberStepperSpawner {
                         border_radius: BorderRadius::all(Val::Px(6.0)),
                         ..Default::default()
                     },
-                    BackgroundColor(Color::srgb(0.25, 0.25, 0.29)),
+                    ThemedPrimaryButton,
+                    BackgroundColor(Color::BLACK),
                     StepperButton {
                         stepper_entity,
                         direction: ButtonDirection::Decrement,
                     },
-                    Children::spawn(SpawnWith(|spawner2: &mut RelatedSpawner<ChildOf>| {
+                    Children::spawn(SpawnWith(move |spawner2: &mut RelatedSpawner<ChildOf>| {
                         spawner2.spawn((
                             Text::new("-"),
                             TextFont {
                                 font_size: 20.0,
                                 ..Default::default()
                             },
-                            TextColor(Color::WHITE),
+                            ThemedText::primary(),
+                            TextColor(Color::BLACK),
                         ));
                     })),
                 ));
 
-                // 数值文本
                 spawner.spawn((
                     Node {
                         width: Val::Px(80.0),
@@ -145,7 +139,8 @@ impl NumberStepperSpawner {
                         border_radius: BorderRadius::all(Val::Px(6.0)),
                         ..Default::default()
                     },
-                    BackgroundColor(Color::srgb(0.15, 0.15, 0.19)),
+                    ThemedBackground::primary(),
+                    BackgroundColor(Color::BLACK),
                     StepperValueText { stepper_entity },
                     Children::spawn(SpawnWith({
                         let value_text = value_text.clone();
@@ -156,7 +151,8 @@ impl NumberStepperSpawner {
                                     font_size: 16.0,
                                     ..Default::default()
                                 },
-                                TextColor(Color::WHITE),
+                                ThemedText::primary(),
+                                TextColor(Color::BLACK),
                             ));
                         }
                     })),
@@ -169,10 +165,11 @@ impl NumberStepperSpawner {
                             font_size: 16.0,
                             ..Default::default()
                         },
+                        ThemedText::primary(),
+                        TextColor(Color::BLACK),
                     ));
                 }
 
-                // 加按钮
                 spawner.spawn((
                     Node {
                         width: Val::Px(40.0),
@@ -182,19 +179,21 @@ impl NumberStepperSpawner {
                         border_radius: BorderRadius::all(Val::Px(6.0)),
                         ..Default::default()
                     },
-                    BackgroundColor(Color::srgb(0.25, 0.25, 0.29)),
+                    ThemedPrimaryButton,
+                    BackgroundColor(Color::BLACK),
                     StepperButton {
                         stepper_entity,
                         direction: ButtonDirection::Increment,
                     },
-                    Children::spawn(SpawnWith(|spawner2: &mut RelatedSpawner<ChildOf>| {
+                    Children::spawn(SpawnWith(move |spawner2: &mut RelatedSpawner<ChildOf>| {
                         spawner2.spawn((
                             Text::new("+"),
                             TextFont {
                                 font_size: 20.0,
                                 ..Default::default()
                             },
-                            TextColor(Color::WHITE),
+                            ThemedText::primary(),
+                            TextColor(Color::BLACK),
                         ));
                     })),
                 ));
@@ -203,7 +202,6 @@ impl NumberStepperSpawner {
     }
 }
 
-/// 处理数值调节器按钮点击
 pub fn handle_stepper_buttons(
     button_query: Query<(&Interaction, &StepperButton), (Changed<Interaction>, With<Button>)>,
     mut state_query: Query<&mut StepperState>,
@@ -216,23 +214,19 @@ pub fn handle_stepper_buttons(
             continue;
         }
 
-        // 通过 stepper_entity 找到对应的 StepperState
         let Ok(mut state) = state_query.get_mut(button.stepper_entity) else {
             continue;
         };
 
         let old_value = state.value;
 
-        // 根据方向计算新值
         let new_value = match button.direction {
             ButtonDirection::Decrement => (state.value - state.step).max(state.min),
             ButtonDirection::Increment => (state.value + state.step).min(state.max),
         };
 
-        // 更新状态
         state.value = new_value;
 
-        // 更新对应的文本显示
         let decimal_places = state.decimal_places;
         for (stepper_text, children) in &text_query {
             if stepper_text.stepper_entity == button.stepper_entity {
@@ -244,7 +238,6 @@ pub fn handle_stepper_buttons(
             }
         }
 
-        // 发送事件
         events.trigger(StepperValueChanged {
             id: state.id.clone(),
             stepper_entity: button.stepper_entity,

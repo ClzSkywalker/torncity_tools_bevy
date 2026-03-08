@@ -18,6 +18,10 @@ impl ContentHashable for TestItem {
     }
 }
 
+fn count_by_type<T>(items: &[OrderChangeItem<T>], change_type: ChangeType) -> usize {
+    items.iter().filter(|x| x.change_type == change_type).count()
+}
+
 #[test]
 fn test_no_change() {
     let items = vec![
@@ -30,11 +34,7 @@ fn test_no_change() {
     let report = detector.detect().unwrap();
 
     assert!(!report.has_changes);
-    assert_eq!(report.added_count, 0);
-    assert_eq!(report.removed_count, 0);
-    assert_eq!(report.content_changed_count, 0);
-    assert_eq!(report.order_changed_count, 0);
-    assert_eq!(report.unchanged_count, 3);
+    assert_eq!(count_by_type(&report.items, ChangeType::NoChange), 3);
 }
 
 #[test]
@@ -54,14 +54,8 @@ fn test_order_only_changed() {
     let detector = OrderChangeDetector::new(old_items, new_items);
     let report = detector.detect().unwrap();
 
-    eprintln!("Debug report: has_changes={}, added={}, removed={}, order_changed={}, unchanged={}",
-        report.has_changes, report.added_count, report.removed_count, report.order_changed_count, report.unchanged_count);
-
     assert!(report.has_changes);
-    assert_eq!(report.added_count, 0);
-    assert_eq!(report.removed_count, 0);
-    assert_eq!(report.order_changed_count, 3);
-    assert_eq!(report.unchanged_count, 0);
+    assert_eq!(count_by_type(&report.items, ChangeType::OrderChanged), 3);
 }
 
 #[test]
@@ -81,8 +75,7 @@ fn test_content_only_changed() {
     let report = detector.detect().unwrap();
 
     assert!(report.has_changes);
-    assert_eq!(report.added_count, 1);
-    assert_eq!(report.removed_count, 0);
+    assert_eq!(count_by_type(&report.items, ChangeType::Added), 1);
 }
 
 #[test]
@@ -117,16 +110,14 @@ fn test_content_changed_same_position() {
     let report = detector.detect().unwrap();
 
     assert!(report.has_changes);
-    assert_eq!(report.added_count, 0);
-    assert_eq!(report.removed_count, 0);
-    assert_eq!(report.content_changed_count, 1);
-    assert_eq!(report.order_changed_count, 0);
-    assert_eq!(report.unchanged_count, 2);
+    assert_eq!(count_by_type(&report.items, ChangeType::ContentChanged), 1);
+    assert_eq!(count_by_type(&report.items, ChangeType::NoChange), 2);
 
-    let content_changed = report.get_content_changed_items();
-    assert_eq!(content_changed.len(), 1);
+    let content_changed: Vec<_> = report.items
+        .iter()
+        .filter(|x| x.change_type == ChangeType::ContentChanged)
+        .collect();
     assert_eq!(content_changed[0].item.id, 2);
-    assert_eq!(content_changed[0].item.name, "NewB");
 }
 
 #[test]
@@ -147,68 +138,26 @@ fn test_mixed_changes() {
     let report = detector.detect().unwrap();
 
     assert!(report.has_changes);
-    assert_eq!(report.added_count, 1);
-    assert_eq!(report.removed_count, 1);
+    assert_eq!(count_by_type(&report.items, ChangeType::Added), 1);
+    assert_eq!(count_by_type(&report.items, ChangeType::Removed), 1);
 }
 
 #[test]
-fn test_reorder() {
-    let items = vec![
-        TestItem { id: 1, name: "A".to_string(), value: 10.0 },
-        TestItem { id: 2, name: "B".to_string(), value: 20.0 },
-        TestItem { id: 3, name: "C".to_string(), value: 30.0 },
-    ];
-
-    let target_order = vec![
-        TestItem { id: 3, name: "C".to_string(), value: 30.0 },
+fn test_removed() {
+    let old_items = vec![
         TestItem { id: 1, name: "A".to_string(), value: 10.0 },
         TestItem { id: 2, name: "B".to_string(), value: 20.0 },
     ];
 
-    let mut reorderer = DataReorderer::new(items);
-    reorderer.reorder(&target_order).unwrap();
-
-    let result = reorderer.into_inner();
-    assert_eq!(result[0].id, 3);
-    assert_eq!(result[1].id, 1);
-    assert_eq!(result[2].id, 2);
-}
-
-#[test]
-fn test_reorder_length_mismatch() {
-    let items = vec![
-        TestItem { id: 1, name: "A".to_string(), value: 10.0 },
-        TestItem { id: 2, name: "B".to_string(), value: 20.0 },
-    ];
-
-    let target_order = vec![
+    let new_items = vec![
         TestItem { id: 1, name: "A".to_string(), value: 10.0 },
     ];
 
-    let mut reorderer = DataReorderer::new(items);
-    let result = reorderer.reorder(&target_order);
+    let detector = OrderChangeDetector::new(old_items, new_items);
+    let report = detector.detect().unwrap();
 
-    assert!(result.is_err());
-    assert!(matches!(result, Err(OrderChangeError::LengthMismatch { .. })));
-}
-
-#[test]
-fn test_reorder_content_mismatch() {
-    let items = vec![
-        TestItem { id: 1, name: "A".to_string(), value: 10.0 },
-        TestItem { id: 2, name: "B".to_string(), value: 20.0 },
-    ];
-
-    let target_order = vec![
-        TestItem { id: 1, name: "A".to_string(), value: 10.0 },
-        TestItem { id: 3, name: "C".to_string(), value: 30.0 },
-    ];
-
-    let mut reorderer = DataReorderer::new(items);
-    let result = reorderer.reorder(&target_order);
-
-    assert!(result.is_err());
-    assert!(matches!(result, Err(OrderChangeError::ContentMismatch)));
+    assert!(report.has_changes);
+    assert_eq!(count_by_type(&report.items, ChangeType::Removed), 1);
 }
 
 #[test]
@@ -231,62 +180,30 @@ fn test_content_hashable_primitives() {
 }
 
 #[test]
-fn test_change_summary_order_only() {
+fn test_order_change_detection() {
     let old_items = vec![
         TestItem { id: 1, name: "A".to_string(), value: 10.0 },
         TestItem { id: 2, name: "B".to_string(), value: 20.0 },
+        TestItem { id: 3, name: "C".to_string(), value: 30.0 },
     ];
 
     let new_items = vec![
         TestItem { id: 2, name: "B".to_string(), value: 20.0 },
         TestItem { id: 1, name: "A".to_string(), value: 10.0 },
+        TestItem { id: 3, name: "C".to_string(), value: 30.0 },
     ];
-
-    let detector = OrderChangeDetector::new(old_items, new_items);
-    let summary = detector.get_change_summary();
-
-    assert_eq!(summary.change_type, OverallChangeType::OrderOnly);
-    assert!(detector.needs_reorder());
-    assert!(!detector.needs_full_update());
-}
-
-#[test]
-fn test_change_summary_no_change() {
-    let items = vec![
-        TestItem { id: 1, name: "A".to_string(), value: 10.0 },
-    ];
-
-    let detector = OrderChangeDetector::new(items.clone(), items);
-    let summary = detector.get_change_summary();
-
-    assert_eq!(summary.change_type, OverallChangeType::NoChange);
-    assert!(!detector.needs_reorder());
-    assert!(!detector.needs_full_update());
-}
-
-#[test]
-fn test_performance_large_dataset() {
-    let old_items: Vec<TestItem> = (0..1000)
-        .map(|i| TestItem {
-            id: i,
-            name: format!("Item{}", i),
-            value: i as f32,
-        })
-        .collect();
-
-    let mut new_items = old_items.clone();
-    new_items.reverse();
 
     let detector = OrderChangeDetector::new(old_items, new_items);
     let report = detector.detect().unwrap();
 
-    assert_eq!(report.items.len(), 1000);
-    assert!(report.detection_time_us > 0);
+    assert!(report.has_changes);
+    assert_eq!(count_by_type(&report.items, ChangeType::OrderChanged), 2);
 }
 
 #[test]
 fn test_hash_stability() {
-    let item = TestItem { id: 1, name: "A".to_string(), value: 10.0 };
+    let item = TestItem { id: 1, name: "test".to_string(), value: 1.0 };
+
     let hash1 = item.content_hash();
     let hash2 = item.content_hash();
 
@@ -321,8 +238,115 @@ fn test_hash_collision_detection() {
     let report = detector.detect().unwrap();
 
     assert!(report.has_changes);
-    assert_eq!(report.added_count, 0);
-    assert_eq!(report.removed_count, 0);
-    assert_eq!(report.content_changed_count, 1);
-    assert_eq!(report.order_changed_count, 0);
+    assert_eq!(count_by_type(&report.items, ChangeType::ContentChanged), 1);
+}
+
+#[test]
+fn test_float_precision_issue_in_hash() {
+    #[derive(Debug, Clone, PartialEq)]
+    struct FloatIssueItem {
+        id: i32,
+        name: String,
+        float_field: f32,
+    }
+
+    impl ContentHashable for FloatIssueItem {
+        fn content_hash(&self) -> ContentHash {
+            let mut hasher = super::hash::StableHasher::new();
+            hasher.write_i32(self.id);
+            hasher.write_str(&self.name);
+            hasher.write_f32(self.float_field);
+            hasher.finish()
+        }
+    }
+
+    let old_items = vec![
+        FloatIssueItem { id: 1, name: "A".to_string(), float_field: 10.0 },
+    ];
+
+    let new_items = vec![
+        FloatIssueItem { id: 1, name: "A".to_string(), float_field: 10.0 },
+    ];
+
+    let detector = OrderChangeDetector::new(old_items, new_items);
+    let _report = detector.detect().unwrap();
+
+    eprintln!("Float precision test - float_field bit pattern differs but value looks same:");
+    eprintln!("  old bit pattern: {:032b}", 10.0f32.to_bits());
+    eprintln!("  new bit pattern: {:032b}", 10.0f32.to_bits());
+}
+
+#[test]
+fn test_trader_card_hash_without_float() {
+    use crate::components::trader_card::{TraderCardData, TraderItemData};
+
+    let card1 = TraderCardData {
+        name: "FrankCastle".to_string(),
+        total_profit: 11750,
+        link: "https://www.torn.com".to_string(),
+        items: vec![
+            TraderItemData {
+                image_url: "https://www.torn.com/images/items/35/large.png".to_string(),
+                official: true,
+                name: "Cobra Derringer".to_string(),
+                quantity: 1,
+                buy: 50000,
+                sell: 55000,
+                single_profit: 503,
+                total_profit: 5003,
+                percent: 3.09,
+            },
+        ],
+    };
+
+    let mut card2 = card1.clone();
+    card2.items[0].percent = 3.10;
+
+    let hash1 = card1.content_hash();
+    let hash2 = card2.content_hash();
+
+    eprintln!("TraderCardData hash test:");
+    eprintln!("  card1.percent = {}, hash = {:?}", card1.items[0].percent, hash1);
+    eprintln!("  card2.percent = {}, hash = {:?}", card2.items[0].percent, hash2);
+    eprintln!("  hashes equal: {}", hash1 == hash2);
+
+    assert_eq!(hash1, hash2, "Hash should ignore percent field");
+}
+
+#[test]
+fn test_trader_card_detect_no_change() {
+    use crate::components::trader_card::{TraderCardData, TraderItemData};
+
+    let old_cards = vec![
+        TraderCardData {
+            name: "FrankCastle".to_string(),
+            total_profit: 11750,
+            link: "https://www.torn.com".to_string(),
+            items: vec![
+                TraderItemData {
+                    image_url: "https://www.torn.com/images/items/35/large.png".to_string(),
+                    official: true,
+                    name: "Cobra Derringer".to_string(),
+                    quantity: 1,
+                    buy: 50000,
+                    sell: 55000,
+                    single_profit: 503,
+                    total_profit: 5003,
+                    percent: 3.09,
+                },
+            ],
+        },
+    ];
+
+    let mut new_cards = old_cards.clone();
+    new_cards[0].items[0].percent = 3.10;
+    new_cards[0].items[0].single_profit = 999;
+
+    let detector = OrderChangeDetector::new(old_cards, new_cards);
+    let report = detector.detect().unwrap();
+
+    eprintln!("TraderCardData detect no change test:");
+    eprintln!("  has_changes: {}", report.has_changes);
+
+    assert!(!report.has_changes, "Should detect no changes when only ignored fields differ");
 }

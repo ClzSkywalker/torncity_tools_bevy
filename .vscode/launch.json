@@ -12,12 +12,14 @@
         "args": [
           "build",
           "--bin=torn_trade",
-          "--package=torn_trade"
+          "--package=torn_trade",
+          "--features=dev"
         ]
       },
       "cwd": "${workspaceFolder}",
       "env": {
         "CARGO_MANIFEST_DIR": "${workspaceFolder}",
+        "BEVY_BACKTRACE": "full",
         "RUST_BACKTRACE": "full"
       }
     },

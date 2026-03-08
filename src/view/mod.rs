@@ -17,6 +17,7 @@ pub const DEFAULT_TEXT_FONT_PATH: &str = "fonts/NotoSansSC-Medium.ttf";
 mod home;
 mod res;
 mod setting;
+mod trader_card_manager;
 pub struct ViewPlugin;
 
 impl Plugin for ViewPlugin {
@@ -71,13 +72,15 @@ fn tab_config() -> ViewTabConfig {
         TabItemConfig::new(TabId::Home.name(), TabId::Home.name()),
         TabItemConfig::new(TabId::Setting.name(), TabId::Setting.name()),
     ];
-    let mut style = TabStyleConfig::default();
-    style.root_padding = UiRect::new(
-        px(5.0),
-        px(5.0),
-        px(5.0 + TOP_SAFE_INSET_PX),
-        px(5.0 + BOTTOM_SAFE_INSET_PX),
-    );
+    let style = TabStyleConfig {
+        root_padding: UiRect::new(
+            px(5.0),
+            px(5.0),
+            px(5.0 + TOP_SAFE_INSET_PX),
+            px(5.0 + BOTTOM_SAFE_INSET_PX),
+        ),
+        ..Default::default()
+    };
 
     ViewTabConfig {
         tabs,
@@ -93,8 +96,9 @@ pub fn setup(mut commands: Commands) {
 pub fn enter_stage_enum(
     mut next_state: ResMut<NextState<GameState>>,
     items_database: Option<Res<ItemsDatabase>>,
+    setting_config: Option<Res<SettingConfigRes>>,
 ) {
-    if items_database.is_none() {
+    if items_database.is_none() | setting_config.is_none() {
         return;
     }
     bevy::log::info!("stage enum: Menu");

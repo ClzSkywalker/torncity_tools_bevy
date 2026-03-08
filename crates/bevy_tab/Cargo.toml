@@ -10,3 +10,4 @@ bevy_ui.workspace = true
 bevy_text.workspace = true
 bevy_color.workspace = true
 bevy_camera.workspace = true
+bevy_theme.workspace = true

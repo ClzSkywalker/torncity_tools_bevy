@@ -1,26 +1,39 @@
+use crate::components::tick::CountDownState;
 use crate::components::{scroll::ScrollSpawn, trader_card::*};
 use crate::game::GameState;
 use crate::http::favorites::{Weav3rRespComp, Weav3rSysResource};
 use crate::resource::items_data::{ItemsDatabase, office_item_startup};
+use crate::resource::AudioAssets;
+use crate::view::setting::Weav3rUpdTickerComp;
+use crate::view::trader_card_manager::{
+    CurrentTraderCards, TraderCardScrollMarker, handle_trader_card_update,
+};
 use crate::weav3r;
 use crate::weav3r::profit::ProfitUserInfo;
 use bevy::prelude::*;
+use bevy_theme::prelude::*;
 use bevy_tab::tab::{TabContentRoot, build_tab_view};
+
+#[derive(Component)]
+pub struct TabContentRendered;
 
 use crate::view::{
     TabId,
     res::{SettingConfigRes, Weav3rFavRes},
 };
-
 pub struct Weav3rHomePlugin;
 
 impl Plugin for Weav3rHomePlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(SettingConfigRes::default())
-            .add_systems(OnEnter(GameState::Menu), view.after(build_tab_view))
+        app.init_resource::<CurrentTraderCards>()
             .add_systems(
                 OnEnter(GameState::InitConfig),
                 init_weav3r_fav_res.after(office_item_startup),
+            )
+            .add_systems(OnEnter(GameState::Menu), view.after(build_tab_view))
+            .add_systems(
+                OnEnter(GameState::Menu),
+                startup_trigger_weav3r_request.after(view),
             )
             .add_systems(
                 Update,
@@ -30,14 +43,18 @@ impl Plugin for Weav3rHomePlugin {
             )
             .add_systems(
                 Update,
-                (handle_weav3r_send_req_btn, handle_weav3r_resp).run_if(in_state(GameState::Menu)),
+                (
+                    handle_weav3r_send_req_btn,
+                    handle_weav3r_resp,
+                    update_ticker,
+                )
+                    .run_if(in_state(GameState::Menu)),
             );
     }
 }
 
 fn view(
     mut commands: Commands,
-    asset_server: Res<AssetServer>,
     content_query: Query<(Entity, &TabContentRoot)>,
 ) {
     let mut home_root = None;
@@ -54,29 +71,23 @@ fn view(
         return;
     };
 
-    setup(&mut commands, &asset_server, home_root);
+    setup(&mut commands, home_root);
+    commands.entity(home_root).insert(TabContentRendered);
 }
 
 #[derive(Component)]
 #[require(Button)]
 struct Weav3rSendReqBtn;
 
-#[derive(Component)]
-struct Weav3rTraderCardItem;
-
-pub fn setup(cmd: &mut Commands, asset_server: &AssetServer, parent: Entity) -> Entity {
-    let _ = asset_server;
-    let placeholder = Handle::<Image>::default();
-    let demo_data = TraderCardData::mock();
-    let data = vec![demo_data; 10];
-
+pub fn setup(cmd: &mut Commands, parent: Entity) -> Entity {
     let home_root = cmd
         .spawn((
             Node {
                 width: percent(100.0),
                 height: percent(100.0),
                 flex_direction: FlexDirection::Column,
-                align_content: AlignContent::Start,
+                justify_content: JustifyContent::FlexStart,
+                align_items: AlignItems::Stretch,
                 ..Default::default()
             },
             // 按钮
@@ -98,9 +109,11 @@ pub fn setup(cmd: &mut Commands, asset_server: &AssetServer, parent: Entity) -> 
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
                         overflow: Overflow::clip(),
+                        border_radius: BorderRadius::all(Val::Px(6.0)),
                         ..Default::default()
                     },
-                    BackgroundColor(Color::Srgba(Srgba::GREEN)),
+                    ThemedBackground::primary(),
+                    BackgroundColor(Color::BLACK),
                     Weav3rSendReqBtn,
                     children![(
                         Text::new("请求数据"),
@@ -108,7 +121,8 @@ pub fn setup(cmd: &mut Commands, asset_server: &AssetServer, parent: Entity) -> 
                             font_size: 20.0,
                             ..Default::default()
                         },
-                        TextColor(Color::WHITE),
+                        ThemedText::primary(),
+                        TextColor(Color::BLACK),
                         TextLayout::new(Justify::Center, LineBreak::NoWrap)
                     )],
                 )],
@@ -117,24 +131,26 @@ pub fn setup(cmd: &mut Commands, asset_server: &AssetServer, parent: Entity) -> 
         .id();
     cmd.entity(parent).add_child(home_root);
 
-    let trader_bundles = data
-        .into_iter()
-        .map(|item| {
-            (
-                Weav3rTraderCardItem,
-                TraderCardSpawner::new(item, CardTheme::default(), placeholder.clone()).bundle(),
-            )
-        })
-        .collect::<Vec<_>>();
-
-    let scroll_spawn = ScrollSpawn {
-        width: percent(100.0),
-        height: percent(100.0),
-        column_gap: px(10.0),
-        row_gap: px(10.0),
-    };
-    let scroll_entity = cmd.spawn(scroll_spawn.bundle(trader_bundles)).id();
+    let scroll_spawn = ScrollSpawn::new()
+        .with_width(percent(100.0))
+        .with_height(percent(100.0))
+        .with_column_gap(px(10.0))
+        .with_row_gap(px(10.0));
+    let scroll_entity = cmd
+        .spawn(scroll_spawn.bundle_with_marker(Vec::<()>::new(), Some(TraderCardScrollMarker)))
+        .id();
+    bevy::log::info!(
+        "setup: scroll_entity = {:?}, home_root = {:?}",
+        scroll_entity,
+        home_root
+    );
     cmd.entity(home_root).add_child(scroll_entity);
+    bevy::log::info!(
+        "setup: after add_child, scroll_entity = {:?}, home_root = {:?}",
+        scroll_entity,
+        home_root
+    );
+
     scroll_entity
 }
 
@@ -148,33 +164,12 @@ fn handle_weav3r_send_req_btn(
 ) {
     for interaction in &query {
         if *interaction == Interaction::Pressed {
-            let target_ids = items_database
-                .items
-                .iter()
-                .filter(|x| x.tradeable && x.sell_price >= setting_config.office_price_start)
-                .map(|x| x.id)
-                .chain(
-                    setting_config
-                        .target_ids
-                        .split(',')
-                        .map(|x| x.parse::<i32>().unwrap()),
-                )
-                .collect::<std::collections::HashSet<_>>()
-                .into_iter()
-                .map(|x| x.to_string())
-                .collect::<Vec<String>>()
-                .join(",");
-
-            let sys_id = weav3r_req_sys_resource.0;
-            cmd.run_system_with(
-                sys_id,
-                (
-                    target_ids,
-                    setting_config.token.clone(),
-                    setting_config.cookie.clone(),
-                ),
+            trigger_weav3r_request(
+                &mut cmd,
+                &items_database,
+                &setting_config,
+                &weav3r_req_sys_resource,
             );
-            bevy::log::info!("weav3r: send request");
         }
     }
 }
@@ -182,17 +177,19 @@ fn handle_weav3r_send_req_btn(
 // 处理响应结果
 fn handle_weav3r_resp(
     mut cmd: Commands,
-    _asset_server: Res<AssetServer>,
     query: Query<(Entity, &Weav3rRespComp)>,
-    trader_card_query: Query<(Entity, &ChildOf), With<Weav3rTraderCardItem>>,
+    cards_parents: Single<Entity, With<TraderCardScrollMarker>>,
     mut weav3r_fav_res: ResMut<Weav3rFavRes>,
+    mut current_cards: ResMut<CurrentTraderCards>,
+    audio_assets: Res<AudioAssets>,
+    setting_config: Res<SettingConfigRes>,
 ) {
+    // return;
     for (entity, weav3r_resp_resource) in &query {
         cmd.entity(entity).despawn();
 
         let responses = weav3r_resp_resource.responses.clone();
 
-        // todo 这里要保存
         let favorites_res = &mut weav3r_fav_res.0;
         favorites_res.set_new_profit(responses.items);
 
@@ -200,47 +197,32 @@ fn handle_weav3r_resp(
             .user_profit_result
             .iter()
             .cloned()
-            .map(profit_to_trader_card_data)
+            .map(|f| profit_to_trader_card_data(f, setting_config.product_top_time))
             .collect::<Vec<_>>();
 
-        let mut cards_parent = None;
-        for (card_entity, childof) in &trader_card_query {
-            if cards_parent.is_none() {
-                cards_parent = Some(childof.parent());
-            }
-            cmd.entity(card_entity).despawn();
-        }
+        let parents = *cards_parents;
 
-        if trader_card_data.is_empty() {
-            bevy::log::info!("weav3r: trader_card_data is empty");
-            continue;
-        }
-        bevy::log::info!("weav3r: load {} trader cards", trader_card_data.len());
+        let has_changes = handle_trader_card_update(
+            &mut cmd,
+            parents,
+            &mut current_cards,
+            trader_card_data.clone(),
+        );
 
-        let placeholder = Handle::<Image>::default();
-        let trader_bundles = trader_card_data
-            .into_iter()
-            .take(20)
-            .map(|item| {
-                (
-                    Weav3rTraderCardItem,
-                    TraderCardSpawner::new(item, CardTheme::default(), placeholder.clone())
-                        .bundle(),
-                )
-            })
-            .collect::<Vec<_>>();
-
-        if let Some(cards_parent) = cards_parent {
-            cmd.entity(cards_parent).with_children(|builder| {
-                for trader_card_bundle in trader_bundles {
-                    builder.spawn(trader_card_bundle);
-                }
-            });
+        if has_changes && setting_config.audio_switch {
+            cmd.spawn(AudioPlayer::new(audio_assets.notification.clone()));
         }
     }
 }
 
-fn profit_to_trader_card_data(favorites_res: ProfitUserInfo) -> TraderCardData {
+fn profit_to_trader_card_data(favorites_res: ProfitUserInfo, product_top_time: u32) -> TraderCardData {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+    let recent_sec = now.saturating_sub(product_top_time as u64);
+    let is_new = favorites_res.created_on >= recent_sec;
+
     let items: Vec<TraderItemData> = favorites_res
         .items
         .into_iter()
@@ -261,6 +243,8 @@ fn profit_to_trader_card_data(favorites_res: ProfitUserInfo) -> TraderCardData {
         name: favorites_res.player_name,
         total_profit: favorites_res.total_profit_price,
         link: weav3r::profit::get_bazaar_url(favorites_res.player_id),
+        created_on: favorites_res.created_on,
+        is_new,
         items,
     }
 }
@@ -283,6 +267,7 @@ fn update_weav3r_fav_res(
     mut weav3r_fav_res: ResMut<Weav3rFavRes>,
 ) {
     let favorites_res = &mut weav3r_fav_res.0;
+    favorites_res.sort.recent_sec = setting_config.product_top_time;
     favorites_res.filter.min_profit = setting_config.min_profit;
     favorites_res.filter.office_sell_price = setting_config.office_price_start;
     favorites_res.filter.office_sell_profit = setting_config.office_profit;
@@ -292,4 +277,81 @@ fn update_weav3r_fav_res(
         .split(',')
         .map(|x| x.parse::<i32>().unwrap())
         .collect();
+}
+
+fn update_ticker(
+    mut cmd: Commands,
+    time: Res<Time>,
+    mut ticker: ResMut<Weav3rUpdTickerComp>,
+    weav3r_req_sys_resource: Res<Weav3rSysResource>,
+    setting_config: Res<SettingConfigRes>,
+    items_database: Res<ItemsDatabase>,
+) {
+    if !setting_config.is_run {
+        return;
+    }
+    let state = ticker.tick(time.delta_secs());
+    if CountDownState::Restore.ne(&state) {
+        return;
+    }
+
+    trigger_weav3r_request(
+        &mut cmd,
+        &items_database,
+        &setting_config,
+        &weav3r_req_sys_resource,
+    );
+}
+
+fn startup_trigger_weav3r_request(
+    mut cmd: Commands,
+    items_database: Res<ItemsDatabase>,
+    setting_config: Res<SettingConfigRes>,
+    weav3r_req_sys_resource: Res<Weav3rSysResource>,
+) {
+    if !setting_config.is_run {
+        return;
+    }
+    trigger_weav3r_request(
+        &mut cmd,
+        &items_database,
+        &setting_config,
+        &weav3r_req_sys_resource,
+    );
+}
+
+fn trigger_weav3r_request(
+    cmd: &mut Commands,
+    items_database: &ItemsDatabase,
+    setting_config: &SettingConfigRes,
+    weav3r_req_sys_resource: &Weav3rSysResource,
+) {
+    let target_ids = items_database
+        .items
+        .iter()
+        .filter(|x| x.tradeable && x.sell_price >= setting_config.office_price_start)
+        .map(|x| x.id)
+        .chain(
+            setting_config
+                .target_ids
+                .split(',')
+                .map(|x| x.parse::<i32>().unwrap()),
+        )
+        .collect::<std::collections::HashSet<_>>()
+        .into_iter()
+        .map(|x| x.to_string())
+        .collect::<Vec<String>>()
+        .join(",");
+
+    let sys_id: bevy_ecs::system::SystemId<In<(String, String, String)>> =
+        weav3r_req_sys_resource.0;
+    cmd.run_system_with(
+        sys_id,
+        (
+            target_ids,
+            setting_config.token.clone(),
+            setting_config.cookie.clone(),
+        ),
+    );
+    bevy::log::info!("weav3r: send request");
 }

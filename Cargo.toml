@@ -8,20 +8,23 @@ bevy_http = { path = "crates/bevy_http" }
 bevy_clipboard = { path = "crates/bevy_clipboard" }
 bevy_storage = { path = "crates/bevy_storage" }
 bevy_ui_fonts = { path = "crates/bevy_ui_fonts" }
+bevy_theme = { path = "crates/bevy_theme" }
 
-bevy_ecs = { version = "0.18" }
-bevy_app = { version = "0.18" }
-bevy_asset = { version = "0.18" }
-bevy_image = { version = "0.18" }
-bevy_text = { version = "0.18" }
-bevy_ui = { version = "0.18" }
-bevy_log = { version = "0.18" }
-bevy_tasks = { version = "0.18" }
-bevy_ui_widgets = { version = "0.18" }
-bevy_color = { version = "0.18" }
-bevy_camera = { version = "0.18" }
-bevy_state = { version = "0.18" }
-bevy_reflect = { version = "0.18" }
+bevy_ecs = { version = "0.18.1" }
+bevy_app = { version = "0.18.1" }
+bevy = { version = "0.18.1" }
+bevy_asset = { version = "0.18.1" }
+bevy_image = { version = "0.18.1" }
+bevy_text = { version = "0.18.1" }
+bevy_ui = { version = "0.18.1" }
+bevy_log = { version = "0.18.1" }
+bevy_tasks = { version = "0.18.1" }
+bevy_ui_widgets = { version = "0.18.1" }
+bevy_color = { version = "0.18.1" }
+bevy_camera = { version = "0.18.1" }
+bevy_state = { version = "0.18.1" }
+bevy_reflect = { version = "0.18.1" }
+bevy_feathers = { version = "0.18.1" }
 
 bevy_asset_loader = { version = "0.25.0" }
 
@@ -58,14 +61,26 @@ crate-type = ["cdylib", "rlib"]
 [build-dependencies]
 winresource = "0.1"
 
+[features]
+default = []
+dev = ["bevy/debug"]
+
 [target.'cfg(not(target_os = "android"))'.dependencies]
-bevy = { version = "0.18", features = ["bevy_window", "bevy_asset"] }
-bevy_asset_loader.workspace = true
+bevy = { version = "0.18.1", features = [
+  "bevy_window",
+  "bevy_asset",
+  "experimental_bevy_feathers",
+  "audio",
+  "mp3",
+] }
 bevy_state.workspace = true
 bevy_asset.workspace = true
 bevy_ecs.workspace = true
 bevy_reflect.workspace = true
 bevy_ui_widgets.workspace = true
+bevy_feathers.workspace = true
+
+bevy_asset_loader.workspace = true
 
 bevy_http.workspace = true
 bevy_clipboard.workspace = true
@@ -73,15 +88,16 @@ bevy_storage.workspace = true
 bevy_ui_fonts.workspace = true
 bevy_tab.workspace = true
 bevy_remote_image.workspace = true
+bevy_theme.workspace = true
 
 thiserror.workspace = true
 serde.workspace = true
-serde_json.workspace = true
 csv.workspace = true
 webbrowser.workspace = true
+serde_json.workspace = true
 
 [target.'cfg(target_os = "android")'.dependencies]
-bevy = { version = "0.18", default-features = false, features = [
+bevy = { version = "0.18.1", default-features = false, features = [
   "ui_api",
   "ui_bevy_render",
   "audio",
@@ -98,6 +114,9 @@ bevy = { version = "0.18", default-features = false, features = [
   "wayland",
   "sysinfo_plugin",
   "bevy_asset",
+
+  "experimental_bevy_feathers",
+  "mp3",
 ] }
 
 bevy_http.workspace = true
@@ -106,13 +125,16 @@ bevy_storage.workspace = true
 bevy_ui_fonts.workspace = true
 bevy_tab.workspace = true
 bevy_remote_image.workspace = true
+bevy_theme.workspace = true
 
-bevy_asset_loader.workspace = true
 bevy_state.workspace = true
 bevy_asset.workspace = true
 bevy_ecs.workspace = true
 bevy_reflect.workspace = true
 bevy_ui_widgets.workspace = true
+bevy_feathers.workspace = true
+
+bevy_asset_loader.workspace = true
 
 wgpu = { version = "27", features = ["gles"] }
 thiserror.workspace = true
@@ -132,7 +154,7 @@ build_targets = ["aarch64-linux-android"]
 
 [package.metadata.android.application]
 icon = "@mipmap/icon"
-label = "TornTrade" # ToDo
+label = "TornTrade"   # ToDo
 
 # Android baseline permissions (keep minimal and add only when needed).
 [[package.metadata.android.uses_permission]]
@@ -159,3 +181,9 @@ max_sdk_version = 32
 [package.metadata.android.sdk]
 min_sdk_version = 26
 target_sdk_version = 36
+
+[target.'cfg(target_os = "android")'.profile.release]
+opt-level = "z"
+lto = true        # 开启链接时优化，减少函数调用开销
+codegen-units = 1 # 提升优化粒度，牺牲编译速度换取性能
+panic = 'abort'   # 禁用栈展开，减小二进制体积

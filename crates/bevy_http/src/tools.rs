@@ -461,7 +461,7 @@ fn tokenize_curl(curl_command: &str) -> Vec<String> {
         match ch {
             '\\' => {
                 // 在双引号内或未引用时，反斜杠作为转义字符
-                if !(!in_double_quote && in_single_quote) {
+                if in_double_quote || !in_single_quote {
                     escape_next = true;
                 } else {
                     current_token.push(ch);

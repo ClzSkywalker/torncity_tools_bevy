@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy_theme::prelude::*;
 
 use crate::{resource::LoadingPlugin, view::ViewPlugin};
 
@@ -18,6 +19,9 @@ pub struct GamePlugin;
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
         app.init_state::<GameState>()
+            .add_plugins(BevyThemePlugin::new(
+                ThemePreset::default(),
+            ))
             .add_plugins((LoadingPlugin, ViewPlugin));
 
         // #[cfg(debug_assertions)]

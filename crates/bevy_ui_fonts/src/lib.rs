@@ -20,11 +20,10 @@ impl GlobalUiFontPlugin {
 
 impl Plugin for GlobalUiFontPlugin {
     fn build(&self, app: &mut App) {
-        let font_handle = if self.path.is_some() {
-            Some(app.get_asset_server().load(self.path.as_ref().unwrap()))
-        } else {
-            None
-        };
+        let font_handle = self
+            .path
+            .as_ref()
+            .map(|path| app.get_asset_server().load(path));
         app.insert_resource(UiFonts(font_handle))
             .add_systems(Update, text_change_add)
             .add_systems(Update, font_change_ob.run_if(resource_changed::<UiFonts>));

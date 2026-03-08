@@ -1,6 +1,7 @@
 pub mod tab;
 
 use bevy_app::prelude::*;
+use bevy_ecs::schedule::{IntoScheduleConfigs, common_conditions::resource_changed};
 use tab::{
     ActiveTab, ViewTabConfig, build_tab_view, switch_active_tab, sync_active_tab_style,
     update_tab_visibility,
@@ -25,13 +26,11 @@ impl Plugin for BevyTabPlugin {
         app.insert_resource(config)
             .insert_resource(ActiveTab(initial_tab))
             .add_systems(Startup, build_tab_view)
+            .add_systems(Update, switch_active_tab)
             .add_systems(
                 Update,
-                (
-                    switch_active_tab,
-                    update_tab_visibility,
-                    sync_active_tab_style,
-                ),
+                (update_tab_visibility, sync_active_tab_style)
+                    .run_if(resource_changed::<ActiveTab>),
             );
     }
 }

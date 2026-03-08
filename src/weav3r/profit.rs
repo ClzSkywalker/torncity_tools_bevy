@@ -219,7 +219,7 @@ impl FavoritesData {
     /// 按利润排序，前 sec 秒的利润排序，然后是老的利润排序
     fn sort_profit(params: SortProfitParams, items: Vec<ProfitUserInfo>) -> Vec<ProfitUserInfo> {
         let now = crate::tools::time::get_current_time();
-        let recent_sec = now - params.recent_sec;
+        let recent_sec = now - params.recent_sec as u64;
         let mut recent_items: Vec<ProfitUserInfo> = items
             .clone()
             .into_iter()
@@ -517,7 +517,7 @@ pub struct FilterItem {
 
 #[derive(Debug, Clone, Default)]
 pub struct SortProfitParams {
-    pub recent_sec: u64,
+    pub recent_sec: u32,
 }
 
 impl ContentHashable for ProfitInfo {

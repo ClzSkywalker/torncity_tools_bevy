@@ -5,11 +5,14 @@ use crate::weav3r::profit::FavoritesData;
 
 #[derive(Resource, Serialize, Deserialize)]
 pub struct SettingConfigRes {
+    // 启动开关
+    pub is_run: bool,
+    // 音频开关
+    pub audio_switch: bool,
     // 间隔时间
     pub interval: f32,
-    // 音频开关
-    #[allow(dead_code)]
-    pub audio_switch: bool,
+    // 新商品置顶时间
+    pub product_top_time: u32,
     // 利润百分比
     pub profit_percent: f32,
     // 最低利润
@@ -27,8 +30,10 @@ pub struct SettingConfigRes {
 impl Default for SettingConfigRes {
     fn default() -> Self {
         Self {
-            interval: 5.0,
+            is_run:true,
             audio_switch: true,
+            product_top_time: 30,
+            interval: 5.0,
             profit_percent: 4.0,
             min_profit: 20000,
             office_price_start: 300,
@@ -40,6 +45,5 @@ impl Default for SettingConfigRes {
     }
 }
 
-
-#[derive(Resource,Default)]
+#[derive(Resource, Default)]
 pub struct Weav3rFavRes(pub FavoritesData);

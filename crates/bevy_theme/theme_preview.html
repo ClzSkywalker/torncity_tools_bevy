@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>深色主题配色预览</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            padding: 24px;
+            background: #000;
+        }
+        h1 { color: #fff; margin-bottom: 8px; }
+        .subtitle { color: #888; margin-bottom: 32px; }
+
+        .tabs {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 20px;
+            background: #1a1a1a;
+            padding: 4px;
+            border-radius: 8px;
+            width: fit-content;
+        }
+        .tab {
+            padding: 8px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            color: #888;
+            font-size: 14px;
+            transition: all 0.2s;
+            border: none;
+            background: transparent;
+        }
+        .tab:hover { color: #fff; }
+        .tab.active { background: #333; color: #fff; }
+
+        .panel { display: none; }
+        .panel.active { display: block; }
+
+        .preview-container {
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid #333;
+            margin-bottom: 32px;
+        }
+        .preview-root { padding: 20px; min-height: 180px; }
+        .preview-scroll { padding: 14px; border-radius: 8px; margin: 10px; min-height: 140px; }
+        .preview-card { padding: 14px; border-radius: 6px; margin-bottom: 10px; }
+        .preview-card-title { font-weight: 600; margin-bottom: 6px; font-size: 14px; }
+        .preview-card-text { font-size: 12px; opacity: 0.7; }
+
+        .colors-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 12px;
+        }
+        .color-item {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            border-radius: 6px;
+            background: #1a1a1a;
+        }
+        .color-swatch {
+            width: 40px;
+            height: 24px;
+            border-radius: 4px;
+            margin-right: 12px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .color-name { color: #fff; font-weight: 600; font-size: 12px; }
+        .color-hex { color: #666; font-size: 11px; font-family: monospace; }
+    </style>
+</head>
+<body>
+    <h1>深色主题配色预览</h1>
+    <p class="subtitle">root → scroll → card 三层级背景色对比</p>
+
+    <div class="tabs" id="themeTabs"></div>
+    <div id="previewPanels"></div>
+
+    <script>
+        // 同步 theme.rs 中的配色配置
+        const themes = {
+            'MaterialDesign3': {
+                name: 'Material Design 3',
+                primary: '#00D084',
+                bg_deep: '#121212',
+                bg_primary: '#1E1E1E',
+                bg_secondary: '#2D2D2D',
+                bg_tertiary: '#3C3C3C',
+                bg_elevated: '#4A4A4A',
+                text_primary: '#FFFFFF',
+                text_secondary: '#A1A1A6',
+                text_muted: '#71717A',
+                border_subtle: '#3F3F46',
+                border_default: '#52525B',
+                border_active: '#00D084',
+                success: '#22C55E',
+                warning: '#F59E0B',
+                error: '#EF4444',
+                info: '#3B82F6',
+            },
+            'GitHubDark': {
+                name: 'GitHub Dark',
+                primary: '#38BDF8',
+                bg_deep: '#0D1117',
+                bg_primary: '#161B22',
+                bg_secondary: '#21262D',
+                bg_tertiary: '#30363D',
+                bg_elevated: '#484F58',
+                text_primary: '#F8FAFC',
+                text_secondary: '#9CA3AF',
+                text_muted: '#737373',
+                border_subtle: '#30363D',
+                border_default: '#484F58',
+                border_active: '#38BDF8',
+                success: '#29A355',
+                warning: '#D29922',
+                error: '#F85149',
+                info: '#58A6FF',
+            }
+        };
+
+        function isLightColor(hex) {
+            const r = parseInt(hex.slice(1, 3), 16) / 255;
+            const g = parseInt(hex.slice(3, 5), 16) / 255;
+            const b = parseInt(hex.slice(5, 7), 16) / 255;
+            const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+            return luminance > 0.6;
+        }
+
+        function renderTheme(key, theme) {
+            const textColor = isLightColor(theme.bg_secondary) ? '#000' : '#fff';
+            const textSecondary = isLightColor(theme.bg_secondary) ? '#666' : '#888';
+            
+            return `
+                <div class="panel" id="panel-${key}">
+                    <h3 style="color:#fff;margin-bottom:16px;">${theme.name}</h3>
+                    
+                    <!-- 层级预览 -->
+                    <div class="preview-container">
+                        <div class="preview-root" style="background:${theme.bg_deep}">
+                            <div style="color:${theme.text_primary};margin-bottom:8px;font-size:13px;">Root (bg_deep)</div>
+                            <div class="preview-scroll" style="background:${theme.bg_primary}">
+                                <div style="color:${theme.text_primary};margin-bottom:8px;font-size:13px;">Scroll (bg_primary)</div>
+                                <div class="preview-card" style="background:${theme.bg_secondary}">
+                                    <div class="preview-card-title" style="color:${textColor}">Card (bg_secondary)</div>
+                                    <div class="preview-card-text" style="color:${textSecondary}">卡片内容示例文字</div>
+                                </div>
+                                <div class="preview-card" style="background:${theme.bg_secondary}">
+                                    <div class="preview-card-title" style="color:${textColor}">Card (bg_secondary)</div>
+                                    <div class="preview-card-text" style="color:${textSecondary}">卡片内容示例文字</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 颜色列表 -->
+                    <div class="colors-grid">
+                        ${[
+                            ['bg_deep', 'bg_deep'],
+                            ['bg_primary', 'bg_primary'],
+                            ['bg_secondary', 'bg_secondary'],
+                            ['bg_tertiary', 'bg_tertiary'],
+                            ['bg_elevated', 'bg_elevated'],
+                            ['primary', 'primary'],
+                            ['text_primary', 'text_primary'],
+                            ['text_secondary', 'text_secondary'],
+                            ['text_muted', 'text_muted'],
+                            ['border_subtle', 'border_subtle'],
+                            ['border_default', 'border_default'],
+                            ['border_active', 'border_active'],
+                            ['success', 'success'],
+                            ['warning', 'warning'],
+                            ['error', 'error'],
+                            ['info', 'info'],
+                        ].map(([name, key]) => `
+                            <div class="color-item">
+                                <div class="color-swatch" style="background:${theme[key]}"></div>
+                                <div>
+                                    <div class="color-name">${name}</div>
+                                    <div class="color-hex">${theme[key]}</div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        function init() {
+            const tabsContainer = document.getElementById('themeTabs');
+            const panelsContainer = document.getElementById('previewPanels');
+            
+            const keys = Object.keys(themes);
+            
+            keys.forEach((key, index) => {
+                const theme = themes[key];
+                const tab = document.createElement('button');
+                tab.className = `tab ${index === 0 ? 'active' : ''}`;
+                tab.textContent = theme.name;
+                tab.onclick = () => {
+                    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+                    tab.classList.add('active');
+                    document.getElementById(`panel-${key}`).classList.add('active');
+                };
+                tabsContainer.appendChild(tab);
+                panelsContainer.innerHTML += renderTheme(key, theme);
+            });
+        }
+
+        init();
+    </script>
+</body>
+</html>

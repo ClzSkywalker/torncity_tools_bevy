@@ -36,8 +36,7 @@ impl CacheStore {
         let Some(path) = self.resolve_cached_file_path(&cache_dir, &hash)? else {
             return Ok(None);
         };
-        bevy_log::info!("bevy_storage: load cache bytes path: {}", path.display());
-
+        
         let bytes = FileStore::read_bytes(&path)?;
         let ext = path
             .extension()
