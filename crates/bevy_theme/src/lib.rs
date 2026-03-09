@@ -1,6 +1,6 @@
 pub mod component;
 pub mod resource;
-pub mod systems;
+mod systems;
 pub mod theme;
 
 pub mod prelude;
@@ -27,17 +27,19 @@ impl Plugin for BevyThemePlugin {
         app.init_resource::<UiTheme>()
             .init_resource::<resource::Theme>()
             .insert_resource(resource::Theme::from_preset(self.initial_theme))
-            .add_observer(systems::on_insert_background)
-            .add_observer(systems::on_insert_border)
-            .add_observer(systems::on_insert_text)
-            .add_observer(systems::on_insert_state)
-            .add_observer(systems::on_insert_primary_button)
             .add_systems(
                 Update,
                 (
-                    systems::apply_theme_to_components,
-                    sync_theme_to_feathers,
-                )
+                    systems::on_change_background,
+                    systems::on_change_border,
+                    systems::on_change_text,
+                    systems::on_change_state,
+                    systems::on_change_button,
+                ),
+            )
+            .add_systems(
+                Update,
+                (systems::apply_theme_to_components, sync_theme_to_feathers)
                     .run_if(resource_changed::<resource::Theme>),
             );
     }

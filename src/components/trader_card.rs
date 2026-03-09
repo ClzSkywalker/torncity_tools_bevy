@@ -242,11 +242,7 @@ fn header_section_bundle(data: TraderCardData, config: CardConfig) -> impl Bundl
                 Children::spawn(SpawnWith(move |spawner2: &mut RelatedSpawner<ChildOf>| {
                     spawner2.spawn((
                         ThemedText::primary(),
-                        label_value_text_bundle(
-                            None,
-                            "Link".to_string(),
-                            config.value_font_size,
-                        ),
+                        label_value_text_bundle(None, "Link".to_string(), config.value_font_size),
                     ));
                 })),
             ));
@@ -265,15 +261,17 @@ fn items_section_bundle(
             flex_direction: FlexDirection::Column,
             ..Default::default()
         },
-        Children::spawn(SpawnIter(
-            data.items
-                .into_iter()
-                .map(move |item| item_bundle(item, config.clone(), placeholder.clone())),
-        )),
+        Children::spawn(SpawnIter(data.items.into_iter().map(move |item| {
+            item_bundle(item, config.clone(), placeholder.clone())
+        }))),
     )
 }
 
-fn item_bundle(item: TraderItemData, config: CardConfig, placeholder: Handle<Image>) -> impl Bundle {
+fn item_bundle(
+    item: TraderItemData,
+    config: CardConfig,
+    placeholder: Handle<Image>,
+) -> impl Bundle {
     (
         Node {
             width: Val::Percent(100.0),
@@ -310,6 +308,7 @@ fn product_header_bundle(
             align_items: AlignItems::Center,
             ..Default::default()
         },
+        ThemedBorder::active(),
         Children::spawn(SpawnWith(move |spawner: &mut RelatedSpawner<ChildOf>| {
             spawner.spawn((
                 RemoteImageTarget {
@@ -393,11 +392,7 @@ fn product_body_bundle(item: TraderItemData, config: CardConfig) -> impl Bundle 
         Children::spawn(SpawnWith(move |spawner: &mut RelatedSpawner<ChildOf>| {
             spawner.spawn((
                 ThemedText::secondary(),
-                label_value_text_bundle(
-                    None,
-                    format!("Buy:{}", item.buy),
-                    config.value_font_size,
-                ),
+                label_value_text_bundle(None, format!("Buy:{}", item.buy), config.value_font_size),
             ));
             spawner.spawn((
                 ThemedText::secondary(),

@@ -276,10 +276,6 @@ pub fn sync_active_tab_style(
     mut button_query: Query<(&TabButton, &mut ThemedBackground, &Children), With<Button>>,
     mut text_query: Query<(&TabButtonLabel, &mut ThemedText)>,
 ) {
-    if !active_tab.is_changed() {
-        return;
-    }
-
     for (tab_button, mut themed_bg, children) in &mut button_query {
         let is_active = tab_button.id == active_tab.0;
         themed_bg.layer = if is_active {
