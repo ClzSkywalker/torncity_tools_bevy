@@ -1,8 +1,2 @@
 [env]
 CLIPPY_CONF_DIR = { value = ".", relative = true }
-
-# Android C++ 标准配置 (修复 android-activity 编译问题)
-CXXFLAGS_aarch64_linux_android = "-std=c++17"
-CXXFLAGS_armv7_linux_androideabi = "-std=c++17"
-CXXFLAGS_x86_64_linux_android = "-std=c++17"
-CXXFLAGS_i686_linux_android = "-std=c++17"
