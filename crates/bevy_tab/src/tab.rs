@@ -176,6 +176,8 @@ pub fn build_tab_view(
                 Node {
                     width: percent(100.0),
                     height: config.style.tab_bar_height,
+                    max_height: config.style.tab_bar_height,
+                    min_height: config.style.tab_bar_height,
                     flex_direction: FlexDirection::Row,
                     column_gap: config.style.tab_bar_gap,
                     justify_content: JustifyContent::SpaceEvenly,

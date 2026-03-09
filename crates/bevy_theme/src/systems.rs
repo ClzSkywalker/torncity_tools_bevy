@@ -108,11 +108,17 @@ pub fn on_change_button(
     theme: Res<Theme>,
     mut query: Query<
         &mut BackgroundColor,
-        Or<(Changed<ThemedPrimaryButton>, Added<ThemedPrimaryButton>)>,
+        (
+            Or<(Changed<ThemedPrimaryButton>, Added<ThemedPrimaryButton>)>,
+            Without<ThemedSecondaryButton>,
+        ),
     >,
     mut query_sec: Query<
         &mut BackgroundColor,
-        Or<(Changed<ThemedSecondaryButton>, Added<ThemedSecondaryButton>)>,
+        (
+            Or<(Changed<ThemedSecondaryButton>, Added<ThemedSecondaryButton>)>,
+            Without<ThemedPrimaryButton>,
+        ),
     >,
 ) {
     for mut bg_color in &mut query {
