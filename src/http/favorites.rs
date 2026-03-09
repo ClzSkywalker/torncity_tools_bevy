@@ -4,12 +4,12 @@ use bevy_http::{
     tools::{HttpMethod, HttpTool},
 };
 
-use crate::{model::weav3r::favorites::FavoritesResponse, resource::items_data::ItemsDatabase};
+use crate::{model::weav3r::favorites::FavoritesResponse, resource::items_data::OfficeItemsDbRes};
 
 fn trigger_request(
     In((target_ids, next_action, cookie)): In<(String, String, String)>,
     mut cmd: Commands,
-    items_database: Res<ItemsDatabase>,
+    items_database: Res<OfficeItemsDbRes>,
 ) {
     let f_target_ids = target_ids
         .split(',')

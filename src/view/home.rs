@@ -2,7 +2,7 @@ use crate::components::tick::CountDownState;
 use crate::components::{scroll::ScrollSpawn, trader_card::*};
 use crate::game::GameState;
 use crate::http::favorites::{Weav3rRespComp, Weav3rSysResource};
-use crate::resource::items_data::{ItemsDatabase, office_item_startup};
+use crate::resource::items_data::{OfficeItemsDbRes, office_item_startup};
 use crate::resource::AudioAssets;
 use crate::view::setting::Weav3rUpdTickerComp;
 use crate::view::trader_card_manager::{
@@ -160,7 +160,7 @@ fn handle_weav3r_send_req_btn(
     query: Query<&Interaction, (Changed<Interaction>, With<Button>, With<Weav3rSendReqBtn>)>,
     weav3r_req_sys_resource: Res<Weav3rSysResource>,
     setting_config: Res<SettingConfigRes>,
-    items_database: Res<ItemsDatabase>,
+    items_database: Res<OfficeItemsDbRes>,
 ) {
     for interaction in &query {
         if *interaction == Interaction::Pressed {
@@ -243,14 +243,13 @@ fn profit_to_trader_card_data(favorites_res: ProfitUserInfo, product_top_time: u
         name: favorites_res.player_name,
         total_profit: favorites_res.total_profit_price,
         link: weav3r::profit::get_bazaar_url(favorites_res.player_id),
-        created_on: favorites_res.created_on,
         is_new,
         items,
     }
 }
 
 // 初始化weav3r_fav_res官方数据
-fn init_weav3r_fav_res(mut cmd: Commands, items_database: Res<ItemsDatabase>) {
+fn init_weav3r_fav_res(mut cmd: Commands, items_database: Res<OfficeItemsDbRes>) {
     let mut weav3r_fav_res = Weav3rFavRes::default();
     let favorites_res = &mut weav3r_fav_res.0;
     favorites_res.filter.office_item_map = items_database
@@ -285,7 +284,7 @@ fn update_ticker(
     mut ticker: ResMut<Weav3rUpdTickerComp>,
     weav3r_req_sys_resource: Res<Weav3rSysResource>,
     setting_config: Res<SettingConfigRes>,
-    items_database: Res<ItemsDatabase>,
+    items_database: Res<OfficeItemsDbRes>,
 ) {
     if !setting_config.is_run {
         return;
@@ -305,7 +304,7 @@ fn update_ticker(
 
 fn startup_trigger_weav3r_request(
     mut cmd: Commands,
-    items_database: Res<ItemsDatabase>,
+    items_database: Res<OfficeItemsDbRes>,
     setting_config: Res<SettingConfigRes>,
     weav3r_req_sys_resource: Res<Weav3rSysResource>,
 ) {
@@ -322,7 +321,7 @@ fn startup_trigger_weav3r_request(
 
 fn trigger_weav3r_request(
     cmd: &mut Commands,
-    items_database: &ItemsDatabase,
+    items_database: &OfficeItemsDbRes,
     setting_config: &SettingConfigRes,
     weav3r_req_sys_resource: &Weav3rSysResource,
 ) {

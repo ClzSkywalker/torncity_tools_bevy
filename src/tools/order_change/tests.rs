@@ -297,6 +297,7 @@ fn test_trader_card_hash_without_float() {
                 percent: 3.09,
             },
         ],
+        ..Default::default()
     };
 
     let mut card2 = card1.clone();
@@ -335,6 +336,7 @@ fn test_trader_card_detect_no_change() {
                     percent: 3.09,
                 },
             ],
+            ..Default::default()
         },
     ];
 

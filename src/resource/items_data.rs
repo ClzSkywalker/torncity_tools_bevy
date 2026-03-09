@@ -14,11 +14,11 @@ impl Plugin for ItemsDataPlugin {
 
 /// 存储所有物品数据的 Resource
 #[derive(Resource, Debug)]
-pub struct ItemsDatabase {
+pub struct OfficeItemsDbRes {
     pub items: Vec<ItemInfo>,
 }
 
-impl ItemsDatabase {
+impl OfficeItemsDbRes {
     /// 根据 ID 查找物品
     #[allow(dead_code)]
     pub fn get_by_id(&self, id: i32) -> Option<&ItemInfo> {
@@ -32,7 +32,7 @@ impl ItemsDatabase {
     }
 }
 
-/// 在加载状态完成后，从 DataAssets 中构建 ItemsDatabase
+/// 在加载状态完成后，从 DataAssets 中构建 OfficeItemsDbRes
 pub fn office_item_startup(
     mut commands: Commands,
     data_assets: Res<DataAssets>,
@@ -43,7 +43,7 @@ pub fn office_item_startup(
         return;
     };
 
-    let database = ItemsDatabase {
+    let database = OfficeItemsDbRes {
         items: csv_asset.items.clone(),
     };
     bevy::log::info!(

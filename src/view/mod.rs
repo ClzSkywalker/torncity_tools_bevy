@@ -8,7 +8,7 @@ use crate::{
     components::ComponentsPlugin,
     game::GameState,
     http::favorites::Weav3rFavoriteHttpPlugin,
-    resource::items_data::{ItemsDataPlugin, ItemsDatabase},
+    resource::items_data::{ItemsDataPlugin, OfficeItemsDbRes},
     view::res::SettingConfigRes,
 };
 
@@ -95,7 +95,7 @@ pub fn setup(mut commands: Commands) {
 
 pub fn enter_stage_enum(
     mut next_state: ResMut<NextState<GameState>>,
-    items_database: Option<Res<ItemsDatabase>>,
+    items_database: Option<Res<OfficeItemsDbRes>>,
     setting_config: Option<Res<SettingConfigRes>>,
 ) {
     if items_database.is_none() | setting_config.is_none() {

@@ -1,5 +1,7 @@
 # 项目架构详细说明
 
+> 这是本项目特有的架构设计。通用 ECS 概念见 [ai/bevy_ecs_guide.md](ai/bevy_ecs_guide.md)
+
 本文档说明 Torn Trade 项目的核心架构设计。
 
 ## GameState 状态系统
@@ -32,7 +34,7 @@ pub enum GameState {
 - 自动流转到 `InitConfig`
 
 **InitConfig 状态**
-- 初始化 `ItemsDatabase` 和 `SettingConfigRes`
+- 初始化 `OfficeItemsDbRes` 和 `SettingConfigRes`
 - 条件满足后流转到 `Menu`
 
 **Menu 状态**
@@ -95,6 +97,8 @@ app.add_systems(
 **LoadingPlugin** (`src/resource/mod.rs`)
 - 资源加载插件
 
+使用 `bevy_theme` 插件，详见 [crates/bevy_theme/README.md](crates/bevy_theme/README.md)
+
 ## 数据流
 
 ```
@@ -136,7 +140,7 @@ fn handle_weav3r_resp(
     mut commands: Commands,
     mut events: EventReader<Weav3rRespEvent>,
     mut weav3r_fav_res: ResMut<Weav3rFavRes>,
-    items_database: Res<ItemsDatabase>,
+    items_database: Res<OfficeItemsDbRes>,
 ) {
     for event in events.read() {
         match &event.resp {
@@ -190,13 +194,13 @@ Camera2d
 
 ## 核心资源
 
-### ItemsDatabase
+### OfficeItemsDbRes
 
 **位置**: `src/resource/items_data.rs`
 
 ```rust
 #[derive(Resource, Clone, Debug)]
-pub struct ItemsDatabase {
+pub struct OfficeItemsDbRes {
     pub items: HashMap<String, ItemInfo>,
 }
 ```

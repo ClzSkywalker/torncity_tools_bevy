@@ -10,7 +10,6 @@ pub struct TraderCardData {
     pub total_profit: i64,
     pub link: String,
     pub items: Vec<TraderItemData>,
-    pub created_on: u64,
     pub is_new: bool,
 }
 
@@ -37,7 +36,6 @@ impl TraderCardData {
             name: "FrankCastle".to_string(),
             total_profit: 11750,
             link: "https://www.torn.com".to_string(),
-            created_on: 0,
             is_new: false,
             items: vec![
                 TraderItemData {

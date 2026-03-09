@@ -4,8 +4,8 @@ use thiserror::Error;
 #[derive(Error, Debug, Clone)]
 pub enum BrowserError {
     /// 不支持的操作
-    #[error("Operation not supported on this platform")]
-    NotSupported,
+    // #[error("Operation not supported on this platform")]
+    // NotSupported,
 
     /// 无效的 URL
     #[error("Invalid URL: {0}")]
@@ -149,6 +149,9 @@ impl BrowserProvider {
 
     /// 在浏览器中打开 URL
     pub fn open(&self, url: &str) -> Result<(), BrowserError> {
+        if !url.starts_with("http://") && !url.starts_with("https://") {
+            return Err(BrowserError::InvalidUrl(url.to_string()));
+        }
         self.backend.open(url)
     }
 }
