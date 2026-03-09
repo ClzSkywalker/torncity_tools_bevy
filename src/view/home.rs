@@ -2,17 +2,17 @@ use crate::components::tick::CountDownState;
 use crate::components::{scroll::ScrollSpawn, trader_card::*};
 use crate::game::GameState;
 use crate::http::favorites::{Weav3rRespComp, Weav3rSysResource};
-use crate::resource::items_data::{OfficeItemsDbRes, office_item_startup};
 use crate::resource::AudioAssets;
-use crate::view::setting::Weav3rUpdTickerComp;
+use crate::resource::items_data::{OfficeItemsDbRes, office_item_startup};
+use crate::view::setting::{Weav3rUpdTickerComp, load_config_system};
 use crate::view::trader_card_manager::{
     CurrentTraderCards, TraderCardScrollMarker, handle_trader_card_update,
 };
 use crate::weav3r;
 use crate::weav3r::profit::ProfitUserInfo;
 use bevy::prelude::*;
-use bevy_theme::prelude::*;
 use bevy_tab::tab::{TabContentRoot, build_tab_view};
+use bevy_theme::prelude::*;
 
 #[derive(Component)]
 pub struct TabContentRendered;
@@ -28,7 +28,9 @@ impl Plugin for Weav3rHomePlugin {
         app.init_resource::<CurrentTraderCards>()
             .add_systems(
                 OnEnter(GameState::InitConfig),
-                init_weav3r_fav_res.after(office_item_startup),
+                init_weav3r_fav_res
+                    .after(office_item_startup)
+                    .after(load_config_system),
             )
             .add_systems(OnEnter(GameState::Menu), view.after(build_tab_view))
             .add_systems(
@@ -37,7 +39,7 @@ impl Plugin for Weav3rHomePlugin {
             )
             .add_systems(
                 Update,
-                update_weav3r_fav_res
+                update_weav3r_fav_res_on_change
                     .run_if(resource_changed::<SettingConfigRes>)
                     .run_if(in_state(GameState::Menu)),
             )
@@ -53,10 +55,7 @@ impl Plugin for Weav3rHomePlugin {
     }
 }
 
-fn view(
-    mut commands: Commands,
-    content_query: Query<(Entity, &TabContentRoot)>,
-) {
+fn view(mut commands: Commands, content_query: Query<(Entity, &TabContentRoot)>) {
     let mut home_root = None;
 
     for (entity, root) in &content_query {
@@ -215,7 +214,10 @@ fn handle_weav3r_resp(
     }
 }
 
-fn profit_to_trader_card_data(favorites_res: ProfitUserInfo, product_top_time: u32) -> TraderCardData {
+fn profit_to_trader_card_data(
+    favorites_res: ProfitUserInfo,
+    product_top_time: u32,
+) -> TraderCardData {
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
@@ -249,8 +251,13 @@ fn profit_to_trader_card_data(favorites_res: ProfitUserInfo, product_top_time: u
 }
 
 // 初始化weav3r_fav_res官方数据
-fn init_weav3r_fav_res(mut cmd: Commands, items_database: Res<OfficeItemsDbRes>) {
+fn init_weav3r_fav_res(
+    mut cmd: Commands,
+    items_database: Res<OfficeItemsDbRes>,
+    setting_config: Res<SettingConfigRes>,
+) {
     let mut weav3r_fav_res = Weav3rFavRes::default();
+    update_weav3r_fav_res(setting_config, &mut weav3r_fav_res);
     let favorites_res = &mut weav3r_fav_res.0;
     favorites_res.filter.office_item_map = items_database
         .items
@@ -260,18 +267,21 @@ fn init_weav3r_fav_res(mut cmd: Commands, items_database: Res<OfficeItemsDbRes>)
     cmd.insert_resource(weav3r_fav_res);
 }
 
-// 更新weav3r_fav_res数据
-fn update_weav3r_fav_res(
+fn update_weav3r_fav_res_on_change(
     setting_config: Res<SettingConfigRes>,
     mut weav3r_fav_res: ResMut<Weav3rFavRes>,
 ) {
-    let favorites_res = &mut weav3r_fav_res.0;
-    favorites_res.sort.recent_sec = setting_config.product_top_time;
-    favorites_res.filter.min_profit = setting_config.min_profit;
-    favorites_res.filter.office_sell_price = setting_config.office_price_start;
-    favorites_res.filter.office_sell_profit = setting_config.office_profit;
-    favorites_res.filter.min_profit_percentage = setting_config.profit_percent;
-    favorites_res.filter.target_ids = setting_config
+    update_weav3r_fav_res(setting_config, &mut weav3r_fav_res);
+}
+
+// 更新weav3r_fav_res数据
+fn update_weav3r_fav_res(setting_config: Res<SettingConfigRes>, data: &mut Weav3rFavRes) {
+    data.0.sort.recent_sec = setting_config.product_top_time;
+    data.0.filter.min_profit = setting_config.min_profit;
+    data.0.filter.office_sell_price = setting_config.office_price_start;
+    data.0.filter.office_sell_profit = setting_config.office_profit;
+    data.0.filter.min_profit_percentage = setting_config.profit_percent;
+    data.0.filter.target_ids = setting_config
         .target_ids
         .split(',')
         .map(|x| x.parse::<i32>().unwrap())

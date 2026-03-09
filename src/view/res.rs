@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::weav3r::profit::FavoritesData;
 
-#[derive(Resource, Serialize, Deserialize)]
+#[derive(Resource, Serialize, Deserialize, Debug)]
 pub struct SettingConfigRes {
     // 启动开关
     pub is_run: bool,
