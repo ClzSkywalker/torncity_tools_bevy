@@ -1,7 +1,7 @@
 pub mod dedup;
 pub mod strategy;
 
-use bevy::prelude::*;
+use bevy_ecs::prelude::*;
 use std::collections::{BinaryHeap, VecDeque};
 use std::time::{Duration, Instant};
 

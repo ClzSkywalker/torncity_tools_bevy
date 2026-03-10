@@ -1,4 +1,9 @@
-use bevy::prelude::*;
+use bevy_app::prelude::*;
+use bevy_ecs::prelude::*;
+use bevy_text::prelude::*;
+use bevy_time::Time;
+use bevy_ui::prelude::*;
+
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use crate::channel::ToastChannels;
@@ -72,7 +77,6 @@ fn toast_spawn_system(
 ) {
     if let Some(event) = queue.pop() {
         let position = event.position;
-        let anchor = position.anchor();
 
         let bg_color = match event.kind {
             crate::style::ToastKind::Success => theme.success_color,

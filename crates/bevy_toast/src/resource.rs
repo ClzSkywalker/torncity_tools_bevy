@@ -1,6 +1,8 @@
 use std::time::Duration;
 
-use bevy::prelude::*;
+use bevy_ecs::prelude::*;
+use bevy_color::prelude::*;
+use bevy_ui::prelude::*;
 
 use crate::layout::ToastPosition;
 use crate::queue::{DedupConfig, QueueStrategy, RateLimitConfig};

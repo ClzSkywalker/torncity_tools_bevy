@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy_ecs::prelude::*;
 use std::collections::HashMap;
 
 use crate::layout::ToastPosition;

@@ -13,7 +13,6 @@ bevy_toast = { path = "crates/bevy_toast" }
 
 bevy_ecs = { version = "0.18.1" }
 bevy_app = { version = "0.18.1" }
-bevy = { version = "0.18.1" }
 bevy_asset = { version = "0.18.1" }
 bevy_image = { version = "0.18.1" }
 bevy_text = { version = "0.18.1" }
@@ -27,6 +26,7 @@ bevy_state = { version = "0.18.1" }
 bevy_reflect = { version = "0.18.1" }
 bevy_feathers = { version = "0.18.1" }
 bevy_kira_audio = { version = "0.25", features = ["android_shared_stdcxx"] }
+bevy_time = { version = "0.18.1" }
 
 bevy_asset_loader = { version = "0.25.0" }
 
@@ -108,12 +108,8 @@ bevy = { version = "0.18.1", default-features = false, features = [
   "std",
   "android-native-activity",
   "android_shared_stdcxx",
-  "bevy_winit",
   "default_font",
   "multi_threaded",
-  "webgl2",
-  "x11",
-  "wayland",
   "sysinfo_plugin",
   "bevy_asset",
 
@@ -157,7 +153,7 @@ build_targets = ["aarch64-linux-android"]
 
 [package.metadata.android.application]
 icon = "@mipmap/icon"
-label = "TornTrade"   # ToDo
+label = "TornTrade"
 
 # Android baseline permissions (keep minimal and add only when needed).
 [[package.metadata.android.uses_permission]]

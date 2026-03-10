@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-PACKAGE_NAME="${1:-com.smth.torncitytools}"
+PACKAGE_NAME="${1:-com.smth.torn_trade}"
 ACTIVITY_NAME="${2:-android.app.NativeActivity}"
 
 if ! command -v adb >/dev/null 2>&1; then
@@ -37,4 +37,4 @@ adb logcat -d | rg -n "AndroidRuntime|FATAL EXCEPTION|$PACKAGE_NAME|bevy|panic|S
 
 echo
 echo "Tip: if no useful lines appear, rerun with explicit package/activity:"
-echo "  ./scripts/logcat_crash.sh com.smth.torncitytools android.app.NativeActivity"
+echo "  ./scripts/logcat_crash.sh com.smth.torn_trade android.app.NativeActivity"

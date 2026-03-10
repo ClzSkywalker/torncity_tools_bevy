@@ -1,4 +1,6 @@
-use bevy::prelude::*;
+use bevy_ecs::prelude::*;
+use bevy_color::prelude::*;
+use bevy_ui::prelude::*;
 use std::time::Duration;
 
 use crate::channel::{ToastChannel, ToastPriority};

@@ -1,5 +1,6 @@
-use bevy::prelude::*;
 use std::time::Duration;
+
+use bevy_ecs::prelude::*;
 
 use crate::channel::{ToastChannel, ToastPriority};
 use crate::layout::ToastPosition;
