@@ -25,13 +25,13 @@ fn main() {
 
 fn show_message(mut commands: Commands) {
     // 简单调用
-    commands.add(ToastEvent::success("保存成功"));
-    commands.add(ToastEvent::error("网络错误"));
-    commands.add(ToastEvent::warning("背包已满"));
-    commands.add(ToastEvent::info("新任务解锁"));
+    commands.trigger(ToastEvent::success("保存成功"));
+    commands.trigger(ToastEvent::error("网络错误"));
+    commands.trigger(ToastEvent::warning("背包已满"));
+    commands.trigger(ToastEvent::info("新任务解锁"));
 
     // 自定义配置
-    commands.add(
+    commands.trigger(
         ToastEvent::text("自定义消息")
             .with_position(ToastPosition::TopCenter)
             .with_duration(Duration::from_secs(3))

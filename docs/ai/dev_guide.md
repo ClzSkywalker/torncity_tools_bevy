@@ -36,8 +36,6 @@ cargo test                    # 全部
 cargo test module_name        # 特定模块
 ```
 
-详见 [bevy_ecs_guide.md](bevy_ecs_guide.md) 性能优化部分
-
 ## 构建
 
 ```bash

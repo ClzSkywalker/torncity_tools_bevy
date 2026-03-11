@@ -20,13 +20,8 @@ bevy_color.workspace = true
 bevy_image.workspace = true
 bevy_text.workspace = true
 bevy_time.workspace = true
+bevy_picking.workspace = true
 
 serde.workspace = true
 serde_json.workspace = true
 uuid = { version = "1", features = ["v4"] }
-
-[features]
-default = []
-dev = []
-
-[dev-dependencies]

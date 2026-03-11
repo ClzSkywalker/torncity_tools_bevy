@@ -4,7 +4,10 @@ use bevy_http::{
     tools::{HttpMethod, HttpTool},
 };
 
-use crate::{model::weav3r::favorites::FavoritesResponse, resource::items_data::OfficeItemsDbRes};
+use crate::{
+    model::{error::MyError, weav3r::favorites::FavoritesResponse},
+    resource::items_data::OfficeItemsDbRes,
+};
 
 fn trigger_request(
     In((target_ids, next_action, cookie)): In<(String, String, String)>,
@@ -56,6 +59,7 @@ pub struct Weav3rSysResource(pub SystemId<In<(String, String, String)>>);
 #[derive(Component, Default)]
 pub struct Weav3rRespComp {
     pub responses: FavoritesResponse,
+    pub err: Option<MyError>,
 }
 
 #[derive(Clone, Component)]
@@ -67,7 +71,7 @@ pub struct Weav3rFavoriteHttp {
 
 impl HttpRequest for Weav3rFavoriteHttp {
     type R = FavoritesResponse;
-    type E = String;
+    type E = MyError;
 
     fn build_request(&self) -> HttpTool {
         let mut http = HttpTool::default();
@@ -86,13 +90,23 @@ impl HttpRequest for Weav3rFavoriteHttp {
     }
 
     fn parse_response(response: &bevy_http::Response) -> std::result::Result<Self::R, Self::E> {
+        if response.status != 200 {
+            bevy::log::error!(
+                "weav3r favorites api is not ok, status: {}",
+                response.status
+            );
+            return Err(MyError::NetworkCode(
+                response.status as i64,
+                "weav3r favorites api is not ok".to_string(),
+            ));
+        }
         let Some(text) = response.text() else {
-            return Err("Response text is None".to_string());
+            return Err(MyError::ResponseTextIsNone);
         };
         let text = text.to_string();
         match FavoritesResponse::from_text(&text) {
             Ok(r) => Ok(r),
-            Err(e) => Err(e.to_string()),
+            Err(e) => Err(e),
         }
     }
 }
@@ -105,20 +119,31 @@ fn deal_response(mut cmd: Commands, requests: Query<(Entity, &Weav3rFavoriteHttp
         let r = match response {
             Ok(r) => r,
             Err(e) => {
-                println!("response is Err: {:?}", e);
+                bevy::log::error!("channel error: {:?}", e);
                 cmd.entity(entity).despawn();
+                cmd.spawn(Weav3rRespComp {
+                    responses: FavoritesResponse::default(),
+                    err: Some(MyError::ChannelError(e)),
+                });
                 continue;
             }
         };
         let res = match Weav3rFavoriteHttp::parse_response(&r) {
             Ok(r) => r,
             Err(e) => {
-                println!("parse response is Err: {:?}", e);
+                bevy::log::error!("parse response is Err: {:?}", e);
+                cmd.entity(entity).despawn();
+                cmd.spawn(Weav3rRespComp {
+                    responses: FavoritesResponse::default(),
+                    err: Some(e),
+                });
                 continue;
             }
         };
-        println!("response is Ok");
         cmd.entity(entity).despawn();
-        cmd.spawn(Weav3rRespComp { responses: res });
+        cmd.spawn(Weav3rRespComp {
+            responses: res,
+            err: None,
+        });
     }
 }

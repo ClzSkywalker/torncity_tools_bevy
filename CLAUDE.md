@@ -32,7 +32,6 @@ cargo run --features=dev   # 开发
 ## 文档
 
 - [项目架构](docs/CLAUDE_ARCHITECTURE.md)
-- [Bevy ECS 指南](docs/ai/bevy_ecs_guide.md)
 - [开发指南](docs/ai/dev_guide.md)
 - [调试指南](docs/ai/debug_guide.md)
 - [Android 签名](docs/ANDROID_SIGNING_GUIDE.md)

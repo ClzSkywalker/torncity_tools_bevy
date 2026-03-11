@@ -8,8 +8,6 @@ use bevy_tab::tab::{TabContentRoot, build_tab_view};
 use bevy_theme::prelude::*;
 use bevy_ui_widgets::{ValueChange, checkbox_self_update, observe};
 
-use crate::view::home::TabContentRendered;
-
 use crate::{
     components::{
         button_click_effect::ButtonClickEffect,
@@ -199,13 +197,13 @@ fn build_setting_ui(
 
 fn view(
     mut commands: Commands,
-    content_query: Query<(Entity, &TabContentRoot, &Visibility), Without<TabContentRendered>>,
+    content_query: Query<(Entity, &TabContentRoot)>,
     setting_config: Res<SettingConfigRes>,
 ) {
     let mut view_entity = None;
 
-    for (entity, root, visibility) in &content_query {
-        if root.id.as_str() == TabId::Setting.name() && *visibility == Visibility::Visible {
+    for (entity, root) in &content_query {
+        if root.id.as_str() == TabId::Setting.name() {
             view_entity = Some(entity);
             break;
         }
@@ -216,7 +214,6 @@ fn view(
     };
 
     build_setting_ui(&mut commands, view_entity, &setting_config);
-    commands.entity(view_entity).insert(TabContentRendered);
 }
 #[derive(Component)]
 struct ParseCurlBtn;

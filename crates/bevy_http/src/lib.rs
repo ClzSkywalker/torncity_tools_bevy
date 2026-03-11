@@ -32,7 +32,7 @@ pub trait HttpRequest: Clone + Component {
     /// 成功结果类型
     type R: Send + Sync + 'static;
     /// 错误类型
-    type E: From<String> + Send + Sync + 'static;
+    type E: Into<String> + Send + Sync + 'static;
 
     /// 构建 ehttp::Request
     fn build_request(&self) -> HttpTool;

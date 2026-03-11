@@ -41,10 +41,10 @@ use bevy_clipboard::ClipboardReadResult;
 
 fn handle_result(trigger: On<ClipboardReadResult>) {
     if let Some(content) = &trigger.content {
-        println!("读取成功: {}", content);
+        bevy::log::info!("读取成功: {}", content);
         // 在这里处理剪贴板内容,比如解析 curl 命令等
     } else if let Some(error) = &trigger.error {
-        println!("读取失败: {}", error);
+        bevy::log::error!("读取失败: {}", error);
     }
 }
 
@@ -76,16 +76,16 @@ fn main() {
 }
 
 fn trigger_clipboard_read(world: &mut World) {
-    println!("正在读取剪贴板...");
+    bevy::log::info!("正在读取剪贴板...");
     world.trigger(ReadClipboardEvent);
 }
 
 fn handle_read_result(trigger: On<ClipboardReadResult>) {
     if let Some(content) = &trigger.content {
-        println!("✓ 读取成功!");
-        println!("  内容: {}", content);
+        bevy::log::info!("✓ 读取成功!");
+        bevy::log::info!("  内容: {}", content);
     } else if let Some(error) = &trigger.error {
-        println!("✗ 读取失败: {}", error);
+        bevy::log::error!("✗ 读取失败: {}", error);
     }
 }
 ```

@@ -11,11 +11,11 @@ use crate::view::trader_card_manager::{
 use crate::weav3r;
 use crate::weav3r::profit::ProfitUserInfo;
 use bevy::prelude::*;
+use bevy_ecs::relationship::RelatedSpawner;
 use bevy_tab::tab::{TabContentRoot, build_tab_view};
 use bevy_theme::prelude::*;
-
-#[derive(Component)]
-pub struct TabContentRendered;
+use bevy_toast::events::ToastEvent;
+use bevy_toast::style::ToastPosition;
 
 use crate::view::{
     TabId,
@@ -35,11 +35,11 @@ impl Plugin for Weav3rHomePlugin {
             .add_systems(OnEnter(GameState::Menu), view.after(build_tab_view))
             .add_systems(
                 OnEnter(GameState::Menu),
-                startup_trigger_weav3r_request.after(view),
+                (startup_trigger_weav3r_request, upd_running_state).after(view),
             )
             .add_systems(
                 Update,
-                update_weav3r_fav_res_on_change
+                (update_weav3r_fav_res_on_change, upd_running_state)
                     .run_if(resource_changed::<SettingConfigRes>)
                     .run_if(in_state(GameState::Menu)),
             )
@@ -71,12 +71,14 @@ fn view(mut commands: Commands, content_query: Query<(Entity, &TabContentRoot)>)
     };
 
     setup(&mut commands, home_root);
-    commands.entity(home_root).insert(TabContentRendered);
 }
 
 #[derive(Component)]
 #[require(Button)]
 struct Weav3rSendReqBtn;
+
+#[derive(Component)]
+struct Weav3rRunningComp;
 
 pub fn setup(cmd: &mut Commands, parent: Entity) -> Entity {
     let home_root = cmd
@@ -89,42 +91,85 @@ pub fn setup(cmd: &mut Commands, parent: Entity) -> Entity {
                 align_items: AlignItems::Stretch,
                 ..Default::default()
             },
-            // 按钮
             Children::spawn_one((
                 Node {
-                    width: percent(100.),
-                    height: Val::Px(30.),
-                    max_height: Val::Px(30.),
-                    flex_shrink: 0.0,
-                    justify_content: JustifyContent::Center,
+                    flex_direction: FlexDirection::Row,
+                    width: percent(100.0),
+                    height: Val::Px(50.),
+                    justify_content: JustifyContent::SpaceEvenly,
                     align_items: AlignItems::Center,
                     ..Default::default()
                 },
-                children![(
-                    Node {
-                        width: percent(30.0),
-                        height: percent(100.0),
-                        flex_shrink: 0.0,
-                        justify_content: JustifyContent::Center,
-                        align_items: AlignItems::Center,
-                        overflow: Overflow::clip(),
-                        border_radius: BorderRadius::all(Val::Px(6.0)),
-                        ..Default::default()
-                    },
-                    ThemedBackground::primary(),
-                    BackgroundColor(Color::BLACK),
-                    Weav3rSendReqBtn,
-                    children![(
-                        Text::new("请求数据"),
-                        TextFont {
-                            font_size: 20.0,
+                Children::spawn(SpawnWith(move |spawner: &mut RelatedSpawner<ChildOf>| {
+                    // 请求数据按钮
+                    spawner.spawn((
+                        Node {
+                            width: percent(30.),
+                            height: percent(100.),
+                            flex_shrink: 0.0,
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
                             ..Default::default()
                         },
-                        ThemedText::primary(),
-                        TextColor(Color::BLACK),
-                        TextLayout::new(Justify::Center, LineBreak::NoWrap)
-                    )],
-                )],
+                        children![(
+                            Node {
+                                width: percent(100.0),
+                                height: percent(100.0),
+                                flex_shrink: 0.0,
+                                justify_content: JustifyContent::Center,
+                                align_items: AlignItems::Center,
+                                overflow: Overflow::clip(),
+                                border_radius: BorderRadius::all(Val::Px(6.0)),
+                                ..Default::default()
+                            },
+                            ThemedBackground::primary(),
+                            BackgroundColor(Color::BLACK),
+                            Weav3rSendReqBtn,
+                            children![(
+                                Text::new("请求数据"),
+                                TextFont {
+                                    font_size: 20.0,
+                                    ..Default::default()
+                                },
+                                ThemedText::primary(),
+                                TextColor(Color::BLACK),
+                                TextLayout::new(Justify::Center, LineBreak::NoWrap)
+                            )],
+                        )],
+                    ));
+
+                    // 状态图标
+                    spawner.spawn((
+                        Node {
+                            width: percent(30.),
+                            height: percent(100.),
+                            flex_shrink: 0.0,
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            ..Default::default()
+                        },
+                        children![
+                            (
+                                Weav3rRunningComp,
+                                Node {
+                                    width: Val::Px(30.),
+                                    height: Val::Px(30.),
+                                    border_radius: BorderRadius::all(Val::Px(15.)),
+                                    ..Default::default()
+                                },
+                                BackgroundColor(Color::Srgba(Srgba::GREEN)),
+                                ThemedState::success(),
+                            ),
+                            (
+                                Weav3rRunningComp,
+                                Text::new("运行中"),
+                                TextLayout::new(Justify::Center, LineBreak::NoWrap),
+                                TextColor(Color::WHITE),
+                                ThemedText::primary(),
+                            )
+                        ],
+                    ));
+                })),
             )),
         ))
         .id();
@@ -173,6 +218,20 @@ fn handle_weav3r_send_req_btn(
     }
 }
 
+fn upd_running_state(
+    setting_config: Res<SettingConfigRes>,
+    mut bgcolor: Single<&mut ThemedState, With<Weav3rRunningComp>>,
+    mut text: Single<&mut Text, With<Weav3rRunningComp>>,
+) {
+    if setting_config.is_run {
+        bgcolor.state_type = ThemedStateType::Success;
+        text.0 = "运行中".to_string();
+    } else {
+        bgcolor.state_type = ThemedStateType::Error;
+        text.0 = "未运行".to_string();
+    }
+}
+
 // 处理响应结果
 fn handle_weav3r_resp(
     mut cmd: Commands,
@@ -181,13 +240,21 @@ fn handle_weav3r_resp(
     mut weav3r_fav_res: ResMut<Weav3rFavRes>,
     mut current_cards: ResMut<CurrentTraderCards>,
     audio_assets: Res<AudioAssets>,
-    setting_config: Res<SettingConfigRes>,
+    mut setting_config: ResMut<SettingConfigRes>,
 ) {
-    // return;
     for (entity, weav3r_resp_resource) in &query {
         cmd.entity(entity).despawn();
 
         let responses = weav3r_resp_resource.responses.clone();
+
+        if let Some(e) = weav3r_resp_resource.err.clone() {
+            bevy::log::error!("weav3r_resp error: {:?}", e);
+            setting_config.is_run = false;
+            cmd.trigger(
+                ToastEvent::warning(format!("失败: {:?}", e)).with_position(ToastPosition::TopLeft),
+            );
+            continue;
+        }
 
         let favorites_res = &mut weav3r_fav_res.0;
         favorites_res.set_new_profit(responses.items);

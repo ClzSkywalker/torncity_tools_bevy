@@ -311,7 +311,7 @@ impl ProfitInfo {
     /// 组合相同的类型
     fn combine_other(&self, data: &ProfitInfo) -> ProfitInfo {
         if self.id != data.id {
-            eprintln!("ProfitInfo id not equal:{}:{}", self.id, data.id);
+            bevy::log::error!("ProfitInfo id not equal:{}:{}", self.id, data.id);
             return self.clone();
         }
         let quantity_a = self.quantity;

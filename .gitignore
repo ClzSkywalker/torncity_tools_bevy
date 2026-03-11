@@ -6,3 +6,5 @@ build/android/res/
 build/macos/AppIcon.iconset/
 build/macos/src/Game.app/Contents/Resources/AppIcon.icns
 build/windows/icon*
+
+.trae/documents/*

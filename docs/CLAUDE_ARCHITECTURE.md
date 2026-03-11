@@ -1,7 +1,5 @@
 # 项目架构详细说明
 
-> 这是本项目特有的架构设计。通用 ECS 概念见 [ai/bevy_ecs_guide.md](ai/bevy_ecs_guide.md)
-
 本文档说明 Torn Trade 项目的核心架构设计。
 
 ## GameState 状态系统

@@ -63,7 +63,7 @@ const TOP_SAFE_INSET_PX: f32 = 28.0;
 const TOP_SAFE_INSET_PX: f32 = 0.0;
 
 #[cfg(target_os = "android")]
-const BOTTOM_SAFE_INSET_PX: f32 = 40.0;
+const BOTTOM_SAFE_INSET_PX: f32 = 20.0;
 #[cfg(not(target_os = "android"))]
 const BOTTOM_SAFE_INSET_PX: f32 = 0.0;
 
@@ -84,7 +84,7 @@ fn tab_config() -> ViewTabConfig {
 
     ViewTabConfig {
         tabs,
-        initial_tab: TabId::Setting.name().to_string(),
+        initial_tab: TabId::Home.name().to_string(),
         style,
     }
 }
