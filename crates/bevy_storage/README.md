@@ -1,6 +1,6 @@
 # bevy_storage
 
-跨平台配置持久化存储库，基于 [bevy_pkv](https://github.com/johanhelsing/bevy_pkv) 实现，为 Bevy 应用提供简单易用的键值存储功能。
+跨平台配置持久化存储库，基于 `sysdirs` 实现，为 Bevy 应用提供简单易用的配置管理功能。
 
 ## 特性
 
@@ -47,10 +47,10 @@ struct GameSettings {
 
 // 保存配置
 fn save_settings(
-    mut storage: ResMut<StorageManager>,
+    storage: Res<StorageManager>,
     settings: Res<GameSettings>,
 ) {
-    match storage.save("settings", settings.as_ref()) {
+    match storage.save_app_config(settings.as_ref()) {
         Ok(_) => info!("Settings saved!"),
         Err(e) => error!("Failed to save: {}", e),
     }
@@ -61,7 +61,7 @@ fn load_settings(
     storage: Res<StorageManager>,
     mut settings: ResMut<GameSettings>,
 ) {
-    match storage.load::<GameSettings>("settings") {
+    match storage.load_app_config::<GameSettings>() {
         Ok(loaded) => *settings = loaded,
         Err(_) => warn!("No saved settings found, using defaults"),
     }
@@ -76,15 +76,15 @@ fn load_settings(
 
 | 平台 | 存储路径 |
 |------|---------|
-| **macOS** | `~/Library/Application Support/<Organization>/<Application>/bevy_pkv.redb` |
-| **Linux** | `~/.local/share/<Application>/bevy_pkv.redb` |
-| **Windows** | `C:\Users\<用户名>\AppData\Local\<Organization>\<Application>\data\bevy_pkv.redb` |
+| **macOS** | `~/Library/Application Support/<Application>/app_config.json` |
+| **Linux** | `~/.config/<Application>/app_config.json` |
+| **Windows** | `C:\Users\<用户名>\AppData\Local\<Application>\app_config.json` |
 
 **示例（默认配置）：**
 ```
-macOS:   ~/Library/Application Support/TornCity/torncity_tool/bevy_pkv.redb
-Linux:   ~/.local/share/torncity_tool/bevy_pkv.redb
-Windows: C:\Users\<用户名>\AppData\Local\TornCity\torncity_tool\data\bevy_pkv.redb
+macOS:   ~/Library/Application Support/torncity_tool/app_config.json
+Linux:   ~/.config/torncity_tool/app_config.json
+Windows: C:\Users\<用户名>\AppData\Local\torncity_tool\app_config.json
 ```
 
 ### 移动平台
@@ -101,29 +101,20 @@ Windows: C:\Users\<用户名>\AppData\Local\TornCity\torncity_tool\data\bevy_pkv
 
 | 平台 | 存储方式 | 容量限制 |
 |------|---------|---------|
-| **WASM** | `localStorage` | 5-10MB |
+| **WASM** | `IndexedDB` | 50MB+ |
 
 - 基于浏览器同源策略隔离
-- 可在开发者工具中查看
+- 可在开发者工具中查看/编辑
 
 ## 自定义配置
 
-### 修改组织名和应用名
+### 自动应用名检测
+
+应用名称会自动从可执行文件名检测：
 
 ```rust
-use bevy_storage::StoragePlugin;
-
-App::new()
-    .add_plugins(StoragePlugin {
-        organization: "YourCompany".to_string(),
-        application: "your_app".to_string(),
-    })
-    .run();
-```
-
-**修改后的存储路径（macOS）：**
-```
-~/Library/Application Support/YourCompany/your_app/bevy_pkv.redb
+// AppPaths::detect_app_name() 会自动从 std::env::current_exe() 获取
+// 如果无法检测，默认使用 "app"
 ```
 
 ### 手动创建 StorageManager
@@ -131,7 +122,7 @@ App::new()
 ```rust
 use bevy_storage::StorageManager;
 
-let storage = StorageManager::new("MyOrg", "MyApp");
+let storage = StorageManager::new();
 ```
 
 ## API 文档
@@ -144,16 +135,35 @@ let storage = StorageManager::new("MyOrg", "MyApp");
 
 ```rust
 // 创建新的存储管理器
-pub fn new(organization: &str, application: &str) -> Self
+pub fn new() -> Self
 
-// 保存数据（需要 Serialize trait）
-pub fn save<T: Serialize>(&mut self, key: &str, value: &T) -> Result<()>
+// 获取应用路径
+pub fn app_paths(&self) -> &AppPaths
 
-// 加载数据（需要 Deserialize trait）
-pub fn load<T: for<'de> Deserialize<'de>>(&self, key: &str) -> Result<T>
+// 获取配置文件完整路径
+pub fn app_config_path(&self) -> &PathBuf
 
-// 检查键是否存在
-pub fn exists(&self, key: &str) -> bool
+// 保存应用配置（需要 Serialize trait）
+pub fn save_app_config<T: Serialize>(&self, value: &T) -> Result<()>
+
+// 加载应用配置（需要 Deserialize trait）
+pub fn load_app_config<T: DeserializeOwned>(&self) -> Result<T>
+
+// 加载应用配置，如果不存在则返回默认值
+pub fn load_app_config_or_default<T: DeserializeOwned + Default>(&self) -> Result<T>
+```
+
+### `AppPaths`
+
+应用目录路径结构。
+
+```rust
+pub struct AppPaths {
+    pub config_dir: PathBuf,   // 配置文件目录
+    pub data_dir: PathBuf,     // 数据文件目录
+    pub cache_dir: PathBuf,    // 缓存目录
+    pub temp_dir: PathBuf,     // 临时文件目录
+}
 ```
 
 ### 错误类型
@@ -162,7 +172,7 @@ pub fn exists(&self, key: &str) -> bool
 pub enum StorageError {
     SerializationError(String),    // 序列化失败
     DeserializationError(String),  // 反序列化失败
-    KeyNotFound(String),           // 键不存在
+    NotFound(String),              // 文件不存在
     BackendError(String),          // 后端错误
 }
 ```
@@ -207,13 +217,16 @@ fn load_config(
     storage: Res<StorageManager>,
     mut config: ResMut<GameConfig>,
 ) {
-    match storage.load::<GameConfig>("game_config") {
+    match storage.load_app_config::<GameConfig>() {
         Ok(loaded) => {
             *config = loaded;
             info!("✅ Configuration loaded");
         }
-        Err(StorageError::DeserializationError(_)) => {
+        Err(StorageError::NotFound(_)) => {
             warn!("⚠️  No saved config found, using defaults");
+        }
+        Err(StorageError::DeserializationError(_)) => {
+            warn!("⚠️  Config format error, using defaults");
         }
         Err(e) => error!("❌ Failed to load config: {}", e),
     }
@@ -222,11 +235,11 @@ fn load_config(
 // 按下保存按钮时保存配置
 fn save_on_button_press(
     keyboard: Res<ButtonInput<KeyCode>>,
-    mut storage: ResMut<StorageManager>,
+    storage: Res<StorageManager>,
     config: Res<GameConfig>,
 ) {
     if keyboard.just_pressed(KeyCode::KeyS) {
-        match storage.save("game_config", config.as_ref()) {
+        match storage.save_app_config(config.as_ref()) {
             Ok(_) => info!("✅ Configuration saved"),
             Err(e) => error!("❌ Failed to save: {}", e),
         }
@@ -238,10 +251,10 @@ fn save_on_button_press(
 
 ### 桌面/移动平台
 
-- **格式：** MessagePack（二进制）
-- **文件：** `bevy_pkv.redb`（redb 嵌入式数据库）
-- **优点：** 紧凑、快速、高效
-- **缺点：** 不可直接编辑
+- **格式：** JSON（文本）
+- **文件：** `app_config.json`
+- **优点：** 人类可读、易于调试、跨平台兼容
+- **缺点：** 相比二进制格式占用空间稍大
 
 ### Web 平台
 
@@ -301,22 +314,12 @@ fn default_value() -> i32 { 42 }
 
 ## 依赖
 
-- `bevy_pkv` (0.15) - 核心存储后端
+- `sysdirs` - 跨平台目录检测
 - `serde` - 序列化支持
-- `serde_json` - JSON 支持（用于 exists 检查）
+- `serde_json` - JSON 支持
 - `thiserror` - 错误处理
 
 ## 故障排查
-
-### 构建错误：找不到 bevy_pkv
-
-```bash
-# 检查版本兼容性
-cargo tree | grep bevy_pkv
-
-# 确保 Cargo.toml 中的版本正确
-bevy_pkv = "0.15"
-```
 
 ### 运行时错误：无法创建存储目录
 
@@ -332,8 +335,9 @@ bevy_pkv = "0.15"
 
 ### v0.1.0
 - 初始版本
-- 支持 macOS/Linux/Windows
-- 基于 bevy_pkv 0.15
+- 支持 macOS/Linux/Windows/iOS/Android
+- 基于 sysdirs 跨平台目录检测
+- JSON 格式配置存储
 - 完整的错误处理
 - 类型安全的 API
 

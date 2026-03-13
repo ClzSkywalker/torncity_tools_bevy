@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/*"]
+members = ["crates/*", "crates/curl-parser"]
 
 [workspace.dependencies]
 bevy_tab = { path = "crates/bevy_tab" }

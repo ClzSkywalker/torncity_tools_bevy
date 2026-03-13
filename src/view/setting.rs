@@ -45,7 +45,13 @@ impl Plugin for SettingPlugin {
                 update_curl_config_system.run_if(in_state(GameState::Menu)),
             )
             .add_systems(Update, update_tick.run_if(in_state(GameState::Menu)))
-            .add_systems(Update, read_clipboard_sys.run_if(in_state(GameState::Menu)));
+            .add_systems(Update, read_clipboard_sys.run_if(in_state(GameState::Menu)))
+            .add_systems(
+                Update,
+                sync_start_switch_on_config_change
+                    .run_if(in_state(GameState::Menu))
+                    .run_if(resource_changed::<SettingConfigRes>),
+            );
     }
 }
 
@@ -55,15 +61,16 @@ fn build_setting_ui(
     setting_config: &SettingConfigRes,
 ) {
     let interval = setting_config.interval;
-    let product_top_time = setting_config.product_top_time; 
+    let product_top_time = setting_config.product_top_time;
     let profit_percent = setting_config.profit_percent;
     let min_profit = setting_config.min_profit as f32;
     let office_price_start = setting_config.office_price_start as f32;
     let office_profit = setting_config.office_profit as f32;
     let target_ids = setting_config
         .target_ids
-        .split(",")
-        .collect::<Vec<&str>>()
+        .iter()
+        .map(|x| x.to_string())
+        .collect::<Vec<String>>()
         .join(",");
     let token = setting_config.token.clone();
     let cookie = setting_config.cookie.clone();
@@ -390,7 +397,16 @@ fn parse_curl_result_ob(
             setting_config.target_ids = String::from_utf8(http_tool.body.clone())
                 .unwrap_or_default()
                 .replace("[", "")
-                .replace("]", "");
+                .replace("]", "")
+                .split(',')
+                .filter_map(|x| {
+                    let ok = x.parse::<i32>().ok();
+                    if ok.is_none() {
+                        bevy::log::error!("setting target id {} is not a number", x);
+                    }
+                    ok
+                })
+                .collect();
             commands.trigger(SaveConfigEvent);
         }
         Err(e) => {
@@ -446,8 +462,9 @@ fn update_curl_config_system(
 ) {
     text_queries.p0().0 = setting_config
         .target_ids
-        .split(",")
-        .collect::<Vec<&str>>()
+        .iter()
+        .map(|x| x.to_string())
+        .collect::<Vec<_>>()
         .join(",");
     text_queries.p1().0 = setting_config.token.clone();
     text_queries.p2().0 = setting_config.cookie.clone();
@@ -539,6 +556,20 @@ fn init_switch_states(
     for entity in audio_switch_query.iter() {
         if setting_config.audio_switch {
             commands.entity(entity).insert(Checked);
+        }
+    }
+}
+
+fn sync_start_switch_on_config_change(
+    mut commands: Commands,
+    setting_config: Res<SettingConfigRes>,
+    start_switch_query: Query<Entity, With<StartSwitchComp>>,
+) {
+    for entity in start_switch_query.iter() {
+        if setting_config.is_run {
+            commands.entity(entity).insert(Checked);
+        } else {
+            commands.entity(entity).remove::<Checked>();
         }
     }
 }

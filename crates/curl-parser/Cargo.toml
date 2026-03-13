@@ -1,0 +1,13 @@
+[package]
+name = "curl-parser"
+version = "0.1.0"
+edition = "2024"
+description = "Parse curl commands from browser clipboard"
+license = "MIT"
+
+[dependencies]
+thiserror = "2.0"
+ehttp = "0.6"
+
+[lints.rust]
+unsafe_code = "forbid"

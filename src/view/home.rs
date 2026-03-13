@@ -350,8 +350,8 @@ fn update_weav3r_fav_res(setting_config: Res<SettingConfigRes>, data: &mut Weav3
     data.0.filter.min_profit_percentage = setting_config.profit_percent;
     data.0.filter.target_ids = setting_config
         .target_ids
-        .split(',')
-        .map(|x| x.parse::<i32>().unwrap())
+        .iter()
+        .cloned()
         .collect();
 }
 
@@ -407,12 +407,7 @@ fn trigger_weav3r_request(
         .iter()
         .filter(|x| x.tradeable && x.sell_price >= setting_config.office_price_start)
         .map(|x| x.id)
-        .chain(
-            setting_config
-                .target_ids
-                .split(',')
-                .map(|x| x.parse::<i32>().unwrap()),
-        )
+        .chain(setting_config.target_ids.iter().cloned())
         .collect::<std::collections::HashSet<_>>()
         .into_iter()
         .map(|x| x.to_string())
